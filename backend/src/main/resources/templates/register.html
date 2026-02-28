@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - පරිශීලක ලියාපදිංචිය
+    Sampath Grocery Store - User Registration
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - නව පරිශීලක ගිණුම් නිර්මාණය
+    - සම්පූර්ණ form validation
+    - මුරපදය ශක්තිමත් බව පරීක්ෂා කිරීම
+    - මුරපද ගැලපුම් සත්‍යාපනය
+    - භූමිකාව තෝරාගැනීම (ADMIN, CASHIER, MANAGER)
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Registration - Sampath Grocery Store</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome - Icons සඳහා -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- SweetAlert2 CSS - සුන්දර alerts සඳහා -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.1/dist/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Custom CSS - අපේ විශේෂ styles -->
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* Registration Page Specific Styles */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .register-wrapper {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 0;
+            overflow: hidden;
+        }
+
+        /* Blurred Background Image */
+        .register-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect fill="%2322C55E" width="1920" height="1080"/></svg>');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: blur(8px);
+            transform: scale(1.1);
+            z-index: 0;
+        }
+
+        /* Dark Overlay */
+        .register-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg,
+                    rgba(34, 197, 94, 0.85) 0%,
+                    rgba(16, 185, 129, 0.85) 50%,
+                    rgba(5, 150, 105, 0.90) 100%);
+            z-index: 1;
+        }
+
+        /* Registration Card Container */
+        .register-container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        /* Premium Glass Card Effect */
+        .register-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-2xl);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            padding: 2.5rem 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Logo Section */
+        .register-logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: var(--gradient-primary);
+            border-radius: var(--radius-full);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
+            }
+        }
+
+        .logo-icon i {
+            font-size: 2rem;
+            color: white;
+        }
+
+        .register-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .register-subtitle {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .form-label .required {
+            color: var(--danger-red);
+        }
+
+        .form-control,
+        .form-select {
+            padding: 0.75rem 1rem;
+            padding-left: 2.75rem;
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--medium-grey);
+            font-size: 0.95rem;
+            transition: all var(--transition-medium);
+            background-color: var(--white);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+            outline: none;
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Input Icon Container */
+        .input-icon-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 1rem;
+            z-index: 1;
+        }
+
+        /* Password Toggle */
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 0.25rem;
+            z-index: 1;
+            transition: color var(--transition-fast);
+        }
+
+        .password-toggle:hover {
+            color: var(--primary-green);
+        }
+
+        /* Username Availability Indicator */
+        .availability-indicator {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            font-size: 1.1rem;
+        }
+
+        .availability-indicator.checking {
+            color: var(--text-light);
+        }
+
+        .availability-indicator.available {
+            color: var(--success-green);
+        }
+
+        .availability-indicator.unavailable {
+            color: var(--danger-red);
+        }
+
+        /* Password Strength Meter */
+        .password-strength {
+            margin-top: 0.5rem;
+            height: 4px;
+            background: var(--medium-grey);
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .password-strength.show {
+            display: block;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all var(--transition-medium);
+            border-radius: 2px;
+        }
+
+        .password-strength-bar.weak {
+            width: 33%;
+            background: var(--danger-red);
+        }
+
+        .password-strength-bar.medium {
+            width: 66%;
+            background: var(--warning-orange);
+        }
+
+        .password-strength-bar.strong {
+            width: 100%;
+            background: var(--success-green);
+        }
+
+        .password-strength-text {
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+
+        .password-strength-text.show {
+            display: block;
+        }
+
+        .password-strength-text.weak {
+            color: var(--danger-red);
+        }
+
+        .password-strength-text.medium {
+            color: var(--warning-orange);
+        }
+
+        .password-strength-text.strong {
+            color: var(--success-green);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .toggle-switch input[type="checkbox"] {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            appearance: none;
+            background: var(--medium-grey);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all var(--transition-medium);
+            margin: 0;
+        }
+
+        .toggle-switch input[type="checkbox"]:checked {
+            background: var(--primary-green);
+        }
+
+        .toggle-switch input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            background: white;
+            transition: all var(--transition-medium);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch input[type="checkbox"]:checked::before {
+            left: 26px;
+        }
+
+        .toggle-label {
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        /* Form Grid Layout */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* Buttons */
+        .btn-create {
+            padding: 0.875rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: var(--radius-lg);
+            background: var(--gradient-primary);
+            border: none;
+            color: white;
+            box-shadow: var(--shadow-green);
+            transition: all var(--transition-medium);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-create:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-create:active {
+            transform: translateY(0);
+        }
+
+        .btn-create i {
+            margin-right: 0.5rem;
+        }
+
+        .btn-cancel {
+            padding: 0.875rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: var(--radius-lg);
+            background: var(--light-grey);
+            border: 2px solid var(--medium-grey);
+            color: var(--text-dark);
+            transition: all var(--transition-medium);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-cancel:hover {
+            background: var(--medium-grey);
+            border-color: var(--dark-grey);
+        }
+
+        .btn-cancel i {
+            margin-right: 0.5rem;
+        }
+
+        /* Button Group */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        /* Footer */
+        .register-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--medium-grey);
+        }
+
+        .register-footer p {
+            color: var(--text-light);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .register-footer a {
+            color: var(--primary-green);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .register-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Validation States */
+        .form-control.is-invalid,
+        .form-select.is-invalid {
+            border-color: var(--danger-red);
+        }
+
+        .form-control.is-valid {
+            border-color: var(--success-green);
+        }
+
+        .invalid-feedback,
+        .valid-feedback {
+            display: none;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .invalid-feedback {
+            color: var(--danger-red);
+        }
+
+        .valid-feedback {
+            color: var(--success-green);
+        }
+
+        .form-control.is-invalid~.invalid-feedback,
+        .form-select.is-invalid~.invalid-feedback {
+            display: block;
+        }
+
+        .form-control.is-valid~.valid-feedback {
+            display: block;
+        }
+
+        /* Loading Spinner */
+        .btn-create .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border-width: 2px;
+            margin-right: 0.5rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .register-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column-reverse;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .register-container {
+                max-width: 95%;
+            }
+
+            .register-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Registration Wrapper with Background -->
+    <div class="register-wrapper">
+        <!-- Blurred Background (Replace with actual image path) -->
+        <div class="register-background" style="background-image: url('background-grocery.jpg');"></div>
+
+        <!-- Dark Overlay -->
+        <div class="register-overlay"></div>
+
+        <!-- Registration Container -->
+        <div class="register-container">
+            <div class="register-card">
+                <!-- Logo and Title -->
+                <div class="register-logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <h1 class="register-title">Create New User</h1>
+                    <p class="register-subtitle">Register a new user account for the system</p>
+                </div>
+
+                <!-- Registration Form -->
+                <form id="registerForm" novalidate>
+                    <!-- Username Field -->
+                    <div class="form-group">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user"></i> Username <span class="required">*</span>
+                        </label>
+                        <div class="input-icon-wrapper">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter unique username" required autocomplete="username">
+                            <span class="availability-indicator" id="usernameAvailability"></span>
+                            <div class="invalid-feedback" id="usernameError">
+                                Please enter a valid username.
+                            </div>
+                            <div class="valid-feedback">
+                                Username is available!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Field -->
+                    <div class="form-group">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope"></i> Email Address <span class="required">*</span>
+                        </label>
+                        <div class="input-icon-wrapper">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input type="email" class="form-control" id="email" name="email"
+                                placeholder="Enter email address" required autocomplete="email">
+                            <div class="invalid-feedback">
+                                Please enter a valid email address.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password Fields Row -->
+                    <div class="form-row">
+                        <!-- Password Field -->
+                        <div class="form-group">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock"></i> Password <span class="required">*</span>
+                            </label>
+                            <div class="input-icon-wrapper">
+                                <i class="fas fa-lock input-icon"></i>
+                                <input type="password" class="form-control" id="password" name="password"
+                                    placeholder="Min 8 characters" required autocomplete="new-password" minlength="8">
+                                <button type="button" class="password-toggle" id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <div class="invalid-feedback">
+                                    Password must be at least 8 characters.
+                                </div>
+                            </div>
+                            <div class="password-strength" id="passwordStrength">
+                                <div class="password-strength-bar"></div>
+                            </div>
+                            <div class="password-strength-text" id="passwordStrengthText"></div>
+                        </div>
+
+                        <!-- Confirm Password Field -->
+                        <div class="form-group">
+                            <label for="confirmPassword" class="form-label">
+                                <i class="fas fa-lock"></i> Confirm Password <span class="required">*</span>
+                            </label>
+                            <div class="input-icon-wrapper">
+                                <i class="fas fa-lock input-icon"></i>
+                                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword"
+                                    placeholder="Re-enter password" required autocomplete="new-password">
+                                <button type="button" class="password-toggle" id="toggleConfirmPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <div class="invalid-feedback">
+                                    Passwords do not match.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role Dropdown -->
+                    <div class="form-group">
+                        <label for="role" class="form-label">
+                            <i class="fas fa-user-tag"></i> User Role <span class="required">*</span>
+                        </label>
+                        <div class="input-icon-wrapper">
+                            <i class="fas fa-user-tag input-icon"></i>
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="" disabled selected>Select user role</option>
+                                <option value="admin">Admin</option>
+                                <option value="cashier">Cashier</option>
+                                <option value="manager">Manager</option>
+                                <option value="delivery">Delivery</option>
+                                <option value="storekeeper">Storekeeper</option>
+                            </select>
+                            <div class="invalid-feedback">
+                                Please select a user role.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Is Active Toggle -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-toggle-on"></i> Account Status
+                        </label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="isActive" name="isActive" checked>
+                            <label for="isActive" class="toggle-label">
+                                Active <span id="activeStatus">(Enabled)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Button Group -->
+                    <div class="button-group">
+                        <button type="button" class="btn btn-cancel" id="cancelBtn">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-create" id="createBtn">
+                            <i class="fas fa-user-plus"></i> Create User
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+                <div class="register-footer">
+                    <p>
+                        Already have an account? <a href="/login">Login here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.1/dist/sweetalert2.all.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/js/register.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - ධිලිවරි කළමනාකරණය
+    Sampath Grocery Store - Delivery Management
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - ධිලිවරි එකතු කිරීම, සංස්කරණය, මකා දැමීම
+    - ධිලිවරි තත්ත්වය නිරීක්ෂණය (Pending, In Transit, Delivered)
+    - ධරායඳේරු කළමනාකරණය
+    - ධිලිවරි මාර්ග නිර්ණය
+    - GPS නිරීක්ෂණය (Real-time tracking)
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampath Grocery Store - Delivery Management</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link href="/assets/bootstrap-5.3.7/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome - Icons සඳහා -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- SweetAlert2 - සුන්දර alerts සඳහා -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Custom CSS - අපේ විශේෂ styles -->
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* Status Badges */
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-available {
+            background-color: #28a745;
+        }
+
+        .status-on-delivery {
+            background-color: #007bff;
+        }
+
+        .status-off-duty {
+            background-color: #6c757d;
+        }
+
+        .status-in-use {
+            background-color: #ffc107;
+        }
+
+        .status-maintenance {
+            background-color: #dc3545;
+        }
+
+        /* Tab styling */
+        .nav-tabs .nav-link {
+            color: #666;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 12px 24px;
+            font-weight: 500;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            background: transparent;
+        }
+
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        /* Alert badges */
+        .alert-badge {
+            background: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+
+        /* Multi-select chips */
+        .chip {
+            display: inline-block;
+            padding: 4px 12px;
+            margin: 4px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 16px;
+            font-size: 0.875rem;
+        }
+
+        .chip .remove {
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* Action buttons */
+        .action-btn {
+            padding: 4px 8px;
+            margin: 0 2px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .action-btn.edit {
+            color: #007bff;
+        }
+
+        .action-btn.delete {
+            color: #dc3545;
+        }
+
+        .action-btn.view {
+            color: #28a745;
+        }
+
+        .action-btn.assign {
+            color: #ffc107;
+        }
+
+        /* Product image preview */
+        .product-image-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+
+        /* Time slot radio buttons */
+        .time-slot-option {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .time-slot-option:hover {
+            border-color: var(--primary-color);
+            background: rgba(76, 175, 80, 0.05);
+        }
+
+        .time-slot-option input[type="radio"]:checked+label {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* Map placeholder */
+        .map-placeholder {
+            width: 100%;
+            height: 300px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="sidebarLabel">
+                <i class="fas fa-leaf me-2"></i>Sampath Grocery
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link" href="/dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/inventory">
+                    <i class="fas fa-boxes me-2"></i> Inventory Management
+                </a>
+                <a class="nav-link" href="/pos">
+                    <i class="fas fa-cash-register me-2"></i> POS (Point of Sale)
+                </a>
+                <a class="nav-link" href="/orders">
+                    <i class="fas fa-shopping-cart me-2"></i> Order Management
+                </a>
+                <a class="nav-link" href="/customers">
+                    <i class="fas fa-users me-2"></i> Customer Management
+                </a>
+                <a class="nav-link" href="/payments">
+                    <i class="fas fa-credit-card me-2"></i> Payment & Discounts
+                </a>
+                <a class="nav-link" href="/suppliers">
+                    <i class="fas fa-truck me-2"></i> Suppliers & Reorders
+                </a>
+                <a class="nav-link active" href="/deliveries">
+                    <i class="fas fa-shipping-fast me-2"></i> Delivery Management
+                </a>
+                <a class="nav-link" href="/analytics">
+                    <i class="fas fa-chart-bar me-2"></i> Analytics & Reports
+                </a>
+                <a class="nav-link" href="/users">
+                    <i class="fas fa-user-shield me-2"></i> User Management
+                </a>
+                <a class="nav-link" href="/employees">
+                    <i class="fas fa-id-card me-2"></i> Employee Management
+                </a>
+                <a class="nav-link" href="/role-management">
+                    <i class="fas fa-user-tag me-2"></i> Role Management
+                </a>
+                <a class="nav-link" href="/settings">
+                    <i class="fas fa-cog me-2"></i> Settings
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content Wrapper for Blur Effect -->
+    <div class="main-content-wrapper">
+        <!-- Main Content -->
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card header-card">
+                        <div class="card-header title">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <button class="btn btn-outline-light me-3" type="button" data-bs-toggle="offcanvas"
+                                        data-bs-target="#sidebar">
+                                        <i class="fas fa-bars"></i>
+                                    </button>
+                                    <h2 class="d-inline-block mb-0">
+                                        <i class="fas fa-shipping-fast me-2"></i>Delivery Management
+                                    </h2>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-light premium-btn" data-bs-toggle="modal"
+                                            data-bs-target="#modalDeliveryAssignment">
+                                            <i class="fas fa-truck-loading"></i> Assign Delivery
+                                        </button>
+                                        <button class="btn btn-outline-light" data-bs-toggle="modal"
+                                            data-bs-target="#modalDeliveryRequest">
+                                            <i class="fas fa-shopping-bag"></i> Customer Request
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row stats-section g-4 mb-4">
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="value" id="pendingDeliveries">0</div>
+                        <div class="label">Pending Deliveries</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-info">
+                            <i class="fas fa-road"></i>
+                        </div>
+                        <div class="value" id="onRoadDeliveries">0</div>
+                        <div class="label">On Road</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover success-card">
+                        <div class="icon text-success">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="value" id="completedToday">0</div>
+                        <div class="label">Completed Today</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-primary">
+                            <i class="fas fa-stopwatch"></i>
+                        </div>
+                        <div class="value" id="avgDeliveryTime">0 mins</div>
+                        <div class="label">Avg Delivery Time</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card">
+                        <div class="card-body p-0">
+                            <ul class="nav nav-tabs" id="deliveryTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="deliveries-tab" data-bs-toggle="tab"
+                                        data-bs-target="#deliveries-pane" type="button" role="tab">
+                                        <i class="fas fa-shipping-fast me-2"></i>Active Deliveries
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="drivers-tab" data-bs-toggle="tab"
+                                        data-bs-target="#drivers-pane" type="button" role="tab">
+                                        <i class="fas fa-user-tie me-2"></i>Drivers
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="vehicles-tab" data-bs-toggle="tab"
+                                        data-bs-target="#vehicles-pane" type="button" role="tab">
+                                        <i class="fas fa-car me-2"></i>Vehicles
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="routes-tab" data-bs-toggle="tab"
+                                        data-bs-target="#routes-pane" type="button" role="tab">
+                                        <i class="fas fa-route me-2"></i>Routes
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="deliveryTabsContent">
+                <!-- Active Deliveries Tab -->
+                <div class="tab-pane fade show active" id="deliveries-pane" role="tabpanel">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <h5 class="mb-0">
+                                                <i class="fas fa-list me-2"></i>Delivery Schedule
+                                            </h5>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="input-group enhanced-search">
+                                                <input type="text" class="form-control" id="searchDeliveries"
+                                                    placeholder="Search deliveries...">
+                                                <button class="btn btn-outline-primary" type="button">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover" id="deliveriesTable">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>No.</th>
+                                                    <th>Delivery ID</th>
+                                                    <th>Order Code</th>
+                                                    <th>Customer</th>
+                                                    <th>Address</th>
+                                                    <th>Driver</th>
+                                                    <th>Vehicle</th>
+                                                    <th>Dispatch Time</th>
+                                                    <th>ETA</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="deliveriesTableBody">
+                                                <!-- Deliveries will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drivers Tab -->
+                <div class="tab-pane fade" id="drivers-pane" role="tabpanel">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <ul class="nav nav-pills" id="driverStatusFilter">
+                                                <li class="nav-item">
+                                                    <a class="nav-link active" href="#" data-status="all">All</a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" href="#" data-status="available">
+                                                        <span class="status-indicator status-available"></span>Available
+                                                    </a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" href="#" data-status="on_delivery">
+                                                        <span class="status-indicator status-on-delivery"></span>On
+                                                        Delivery
+                                                    </a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" href="#" data-status="off_duty">
+                                                        <span class="status-indicator status-off-duty"></span>Off Duty
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-primary" data-bs-toggle="modal"
+                                                data-bs-target="#modalDriverForm">
+                                                <i class="fas fa-plus"></i> Add New Driver
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover" id="driversTable">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Driver Code</th>
+                                                    <th>Full Name</th>
+                                                    <th>Phone</th>
+                                                    <th>License Number</th>
+                                                    <th>License Expiry</th>
+                                                    <th>License Type</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="driversTableBody">
+                                                <!-- Drivers will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vehicles Tab -->
+                <div class="tab-pane fade" id="vehicles-pane" role="tabpanel">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <h5 class="mb-0">Vehicle Fleet Management</h5>
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-primary" data-bs-toggle="modal"
+                                                data-bs-target="#modalVehicleForm">
+                                                <i class="fas fa-plus"></i> Add New Vehicle
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover" id="vehiclesTable">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Vehicle Code</th>
+                                                    <th>Vehicle Number</th>
+                                                    <th>Type</th>
+                                                    <th>Make</th>
+                                                    <th>Model</th>
+                                                    <th>Year</th>
+                                                    <th>Fuel Type</th>
+                                                    <th>Capacity (kg)</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="vehiclesTableBody">
+                                                <!-- Vehicles will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Routes Tab -->
+                <div class="tab-pane fade" id="routes-pane" role="tabpanel">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <h5 class="mb-0">Delivery Routes</h5>
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-primary" data-bs-toggle="modal"
+                                                data-bs-target="#modalRouteForm"
+                                                onclick="resetRouteForm(); loadRouteDriverDropdown(); loadRouteVehicleDropdown();">
+                                                <i class="fas fa-plus"></i> Add New Route
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card glass-card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover" id="routesTable">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Route ID</th>
+                                                    <th>Route Name</th>
+                                                    <th>Date</th>
+                                                    <th>Driver</th>
+                                                    <th>Vehicle</th>
+                                                    <th>Deliveries</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="routesTableBody">
+                                                <!-- Routes will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form 6.1: Delivery Assignment Modal -->
+    <div class="modal fade" id="modalDeliveryAssignment" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="fas fa-truck-loading me-2"></i>Delivery Assignment
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="deliveryAssignmentForm">
+                        <!-- Order Selection -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-clipboard-list me-2"></i>Order Selection
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="assignOrderCode" class="form-label">Order Code *</label>
+                                <select class="form-select" id="assignOrderCode" required>
+                                    <option value="">Search and select order...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Customer</label>
+                                <input type="text" class="form-control" id="assignCustomer" readonly>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Delivery Address</label>
+                                <textarea class="form-control" id="assignDeliveryAddress" rows="2" readonly></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Delivery Type</label>
+                                <input type="text" class="form-control" id="assignDeliveryType" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Assignment -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-user-check me-2"></i>Assignment
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="assignDriver" class="form-label">Driver (Available Only) *</label>
+                                <select class="form-select" id="assignDriver" required>
+                                    <option value="">Select available driver...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assignVehicle" class="form-label">Vehicle (Available Only) *</label>
+                                <select class="form-select" id="assignVehicle" required>
+                                    <option value="">Select available vehicle...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="assignRoute" class="form-label">Route (Optional)</label>
+                                <select class="form-select" id="assignRoute">
+                                    <option value="">Select route...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assignDispatchTime" class="form-label">Dispatch Time *</label>
+                                <input type="datetime-local" class="form-control" id="assignDispatchTime" required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="assignEstimatedTime" class="form-label">Estimated Delivery Time</label>
+                                <input type="datetime-local" class="form-control" id="assignEstimatedTime">
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="assignNotes" class="form-label">Delivery Instructions</label>
+                                <textarea class="form-control" id="assignNotes" rows="3"
+                                    placeholder="Special instructions, access codes, etc."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-6 text-end">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-check"></i> Assign Delivery
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form 6.2: Route Management Modal -->
+    <div class="modal fade" id="modalRouteForm" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="routeFormTitle">
+                        <i class="fas fa-route me-2"></i>Add Route
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="routeForm">
+                        <input type="hidden" id="routeId">
+
+                        <!-- Route Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-info-circle me-2"></i>Route Information
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="routeName" class="form-label">Route Name *</label>
+                                <input type="text" class="form-control" id="routeName" placeholder="e.g., Colombo North"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="routeDate" class="form-label">Route Date *</label>
+                                <input type="date" class="form-control" id="routeDate" required>
+                            </div>
+                        </div>
+
+                        <!-- Assignment -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-user-tag me-2"></i>Assignment
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="routeDriver" class="form-label">Driver</label>
+                                <select class="form-select" id="routeDriver">
+                                    <option value="">Select driver...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="routeVehicle" class="form-label">Vehicle</label>
+                                <select class="form-select" id="routeVehicle">
+                                    <option value="">Select vehicle...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Status & Notes -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="routeStatus" class="form-label">Status *</label>
+                                <select class="form-select" id="routeStatus" required>
+                                    <option value="PLANNED">Planned</option>
+                                    <option value="IN_PROGRESS">In Progress</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="CANCELLED">Cancelled</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Statistics</label>
+                                <div class="form-control-plaintext">
+                                    <small class="text-muted">
+                                        <span id="routeStatsDisplay">No deliveries assigned</span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="routeNotes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="routeNotes" rows="3"
+                                    placeholder="Additional notes about this route..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-4 text-center">
+                                <button type="button" class="btn btn-danger" id="btnDeleteRoute" style="display:none;">
+                                    <i class="fas fa-trash"></i> Delete Route
+                                </button>
+                            </div>
+                            <div class="col-4 text-end">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save"></i> Save Route
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form 6.3: Delivery Request Modal (Customer-Initiated) -->
+    <div class="modal fade" id="modalDeliveryRequest" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="fas fa-shopping-bag me-2"></i>New Delivery Request
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="deliveryRequestForm">
+                        <!-- Product Selection -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-box me-2"></i>Product Selection
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="requestProduct" class="form-label">Product *</label>
+                                <select class="form-select" id="requestProduct" required>
+                                    <option value="">Select product...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Batch</label>
+                                <input type="text" class="form-control" id="requestBatch" readonly>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="requestQuantity" class="form-label">Quantity *</label>
+                                <input type="number" class="form-control" id="requestQuantity" min="1" required>
+                                <small class="text-muted">Available: <span id="requestAvailable">0</span></small>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Details -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-calendar me-2"></i>Delivery Details
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="requestDate" class="form-label">Delivery Date *</label>
+                                <input type="date" class="form-control" id="requestDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Time Slot *</label>
+                                <div class="time-slot-option">
+                                    <input type="radio" class="form-check-input me-2" name="timeSlot"
+                                        id="timeSlotMorning" value="morning" required>
+                                    <label class="form-check-label" for="timeSlotMorning">
+                                        <i class="fas fa-sunrise me-2"></i>Morning (8am - 12pm)
+                                    </label>
+                                </div>
+                                <div class="time-slot-option">
+                                    <input type="radio" class="form-check-input me-2" name="timeSlot"
+                                        id="timeSlotAfternoon" value="afternoon">
+                                    <label class="form-check-label" for="timeSlotAfternoon">
+                                        <i class="fas fa-sun me-2"></i>Afternoon (12pm - 4pm)
+                                    </label>
+                                </div>
+                                <div class="time-slot-option">
+                                    <input type="radio" class="form-check-input me-2" name="timeSlot"
+                                        id="timeSlotEvening" value="evening">
+                                    <label class="form-check-label" for="timeSlotEvening">
+                                        <i class="fas fa-moon me-2"></i>Evening (4pm - 8pm)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="requestAddress" class="form-label">Delivery Address *</label>
+                                <textarea class="form-control" id="requestAddress" rows="3" required></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Customer Info -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Customer Name</label>
+                                <input type="text" class="form-control" id="requestCustomerName" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number</label>
+                                <input type="text" class="form-control" id="requestCustomerPhone" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-6 text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Submit Request
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form 6.4: Add/Edit Driver Modal -->
+    <div class="modal fade" id="modalDriverForm" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="driverFormTitle">
+                        <i class="fas fa-user-plus me-2"></i>Add Driver
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="driverForm">
+                        <input type="hidden" id="driverId">
+                        <!-- Personal Info -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-user me-2"></i>Personal Information
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="driverCode" class="form-label">Driver Code *</label>
+                                <input type="text" class="form-control" id="driverCode" placeholder="e.g., DRV-001"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="driverName" class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="driverName" placeholder="Enter full name"
+                                    required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="driverPhone" class="form-label">Phone Number *</label>
+                                <input type="tel" class="form-control" id="driverPhone" placeholder="+94771234567"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="driverEmail" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="driverEmail"
+                                    placeholder="driver@example.com">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="driverAddress" class="form-label">Address</label>
+                                <textarea class="form-control" id="driverAddress" rows="2"
+                                    placeholder="Enter address"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- License Info -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-id-card me-2"></i>License Information
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="driverLicense" class="form-label">License Number *</label>
+                                <input type="text" class="form-control" id="driverLicense" placeholder="DL-KAN-12345"
+                                    required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="driverLicenseType" class="form-label">License Type</label>
+                                <select class="form-select" id="driverLicenseType">
+                                    <option value="">Select type...</option>
+                                    <option value="A">A - Motorcycle</option>
+                                    <option value="B">B - Light Vehicle</option>
+                                    <option value="C">C - Heavy Vehicle</option>
+                                    <option value="D">D - Transport Vehicle</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="driverLicenseExpiry" class="form-label">License Expiry Date *</label>
+                                <input type="date" class="form-control" id="driverLicenseExpiry" required>
+                                <small class="text-danger" id="licenseExpiryWarning" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle"></i> License expires soon!
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Employment Details -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-briefcase me-2"></i>Employment Details (Optional)
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="driverEmployeeLink" class="form-label">Link to Employee</label>
+                                <select class="form-select" id="driverEmployeeLink">
+                                    <option value="">Not linked to employee...</option>
+                                </select>
+                                <small class="text-muted">Optional: If driver is also an employee</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="driverUserAccount" class="form-label">Link User Account</label>
+                                <select class="form-select" id="driverUserAccount">
+                                    <option value="">No user account...</option>
+                                </select>
+                                <small class="text-muted">Optional: For system access</small>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="driverActive" checked>
+                                    <label class="form-check-label" for="driverActive">
+                                        <strong>Active Driver</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted">Inactive drivers won't appear in assignment lists</small>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-4 text-center">
+                                <button type="button" class="btn btn-danger" id="btnDeleteDriver" style="display:none;">
+                                    <i class="fas fa-trash"></i> Delete Driver
+                                </button>
+                            </div>
+                            <div class="col-4 text-end">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save"></i> Save Driver
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form 6.6: Add/Edit Vehicle Modal -->
+    <div class="modal fade" id="modalVehicleForm" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="vehicleFormTitle">
+                        <i class="fas fa-car me-2"></i>Add Vehicle
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="vehicleForm">
+                        <input type="hidden" id="vehicleId">
+                        <input type="hidden" id="vehicleCode">
+
+                        <!-- Vehicle Details -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-car-side me-2"></i>Vehicle Details
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="vehicleNumber" class="form-label">Vehicle Number (License Plate) *</label>
+                                <input type="text" class="form-control" id="vehicleNumber" placeholder="e.g., ABC-1234"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="vehicleType" class="form-label">Vehicle Type *</label>
+                                <select class="form-select" id="vehicleType" required>
+                                    <option value="">Select type...</option>
+                                    <option value="BIKE">Bike</option>
+                                    <option value="THREE_WHEELER">Three Wheeler (Tuk-Tuk)</option>
+                                    <option value="VAN">Van</option>
+                                    <option value="TRUCK">Truck</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="vehicleMake" class="form-label">Make (Manufacturer)</label>
+                                <input type="text" class="form-control" id="vehicleMake"
+                                    placeholder="e.g., Toyota, Honda">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="vehicleModel" class="form-label">Model</label>
+                                <input type="text" class="form-control" id="vehicleModel"
+                                    placeholder="e.g., Hiace, CT100">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="vehicleYear" class="form-label">Year Manufactured</label>
+                                <input type="number" class="form-control" id="vehicleYear" min="1990" max="2026"
+                                    placeholder="2020">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="vehicleFuelType" class="form-label">Fuel Type</label>
+                                <select class="form-select" id="vehicleFuelType">
+                                    <option value="">Select fuel type...</option>
+                                    <option value="PETROL">Petrol</option>
+                                    <option value="DIESEL">Diesel</option>
+                                    <option value="ELECTRIC">Electric</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="vehicleCapacity" class="form-label">Capacity (kg)</label>
+                                <input type="number" class="form-control" id="vehicleCapacity" min="0" step="0.01"
+                                    placeholder="500.00">
+                            </div>
+                        </div>
+
+                        <!-- Insurance & Licensing -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-file-contract me-2"></i>Insurance & Licensing
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="vehicleInsuranceExpiry" class="form-label">Insurance Expiry Date</label>
+                                <input type="date" class="form-control" id="vehicleInsuranceExpiry">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="vehicleRevenueLicenseExpiry" class="form-label">Revenue License
+                                    Expiry</label>
+                                <input type="date" class="form-control" id="vehicleRevenueLicenseExpiry">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="vehicleIsActive" class="form-label">Status</label>
+                                <select class="form-select" id="vehicleIsActive">
+                                    <option value="true">Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-4 text-center">
+                                <button type="button" class="btn btn-danger" id="btnDeleteVehicle"
+                                    style="display:none;">
+                                    <i class="fas fa-trash"></i> Delete Vehicle
+                                </button>
+                            </div>
+                            <div class="col-4 text-end">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save"></i> Save Vehicle
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="/assets/bootstrap-5.3.7/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Common JS -->
+    <script src="/js/common.js"></script>
+    <!-- Deliveries JS -->
+    <script src="/js/deliveries.js"></script>
+</body>
+
+</html>

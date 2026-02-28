@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - සප්ලියර්ස් සහ නැවැත ඇණවුම්
+    Sampath Grocery Store - Suppliers & Reorders Management
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - සප්ලියර්ස් කළමනාකරණය (එකතු කිරීම, සංස්කරණය, මකා දැමීම)
+    - නැවැත ඇණවුම් නිර්මාණය (Reorder Management)
+    - අඩු තොක සඳහා ඔටෝමෙටික් නැවැත ඇණවුම්
+    - සප්ලියර් ඉතිහාසය බැලීම
+    - Purchase Orders නිර්මාණය
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampath Grocery Store - Suppliers & Reorders</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link href="/assets/bootstrap-5.3.7/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome - Icons සඳහා -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- SweetAlert2 CSS - සුන්දර alerts සඳහා -->
+    <link rel="stylesheet" href="/assets/sweetalert2/sweetalert2.min.css">
+
+    <!-- Custom CSS - අපේ විශේෂ styles -->
+    <link rel="stylesheet" href="/css/common.css">
+    
+    <style>
+        /* Toast notification animations */
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="sidebarLabel">
+                <i class="fas fa-leaf me-2"></i>Sampath Grocery
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link" href="/dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/inventory">
+                    <i class="fas fa-boxes me-2"></i> Inventory Management
+                </a>
+                <a class="nav-link" href="/pos">
+                    <i class="fas fa-cash-register me-2"></i> POS (Point of Sale)
+                </a>
+                <a class="nav-link" href="/orders">
+                    <i class="fas fa-shopping-cart me-2"></i> Order Management
+                </a>
+                <a class="nav-link" href="/customers">
+                    <i class="fas fa-users me-2"></i> Customer Management
+                </a>
+                <a class="nav-link" href="/payments">
+                    <i class="fas fa-credit-card me-2"></i> Payment & Discounts
+                </a>
+                <a class="nav-link active" href="/suppliers">
+                    <i class="fas fa-truck me-2"></i> Suppliers & Reorders
+                </a>
+                <a class="nav-link" href="/deliveries">
+                    <i class="fas fa-shipping-fast me-2"></i> Delivery Management
+                </a>
+                <a class="nav-link" href="/analytics">
+                    <i class="fas fa-chart-bar me-2"></i> Analytics & Reports
+                </a>
+                <a class="nav-link" href="/users">
+                    <i class="fas fa-user-shield me-2"></i> User Management
+                </a>
+                <a class="nav-link" href="/employees">
+                    <i class="fas fa-id-card me-2"></i> Employee Management
+                </a>
+                <a class="nav-link" href="/role-management">
+                    <i class="fas fa-user-tag me-2"></i> Role Management
+                </a>
+                <a class="nav-link" href="/settings">
+                    <i class="fas fa-cog me-2"></i> Settings
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header title">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <button class="btn btn-outline-light me-3" type="button" data-bs-toggle="offcanvas"
+                                    data-bs-target="#sidebar">
+                                    <i class="fas fa-bars"></i>
+                                </button>
+                                <h2 class="d-inline-block mb-0">
+                                    <i class="fas fa-truck"></i> Suppliers & Reorders
+                                </h2>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-light me-2" data-bs-toggle="modal"
+                                    data-bs-target="#modalSupplierForm" onclick="generateSupplierCode()">
+                                    <i class="fas fa-plus"></i> Add Supplier
+                                </button>
+                                <button class="btn btn-warning" data-bs-toggle="modal"
+                                    data-bs-target="#modalPurchaseOrderForm" onclick="generatePONumber()">
+                                    <i class="fas fa-shopping-cart"></i> New Purchase Order
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="icon text-primary">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <div class="value" id="totalSuppliers">0</div>
+                    <div class="label">Total Suppliers</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="icon text-success">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="value" id="activePurchaseOrders">0</div>
+                    <div class="label">Active Purchase Orders</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="icon text-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="value" id="lowStockAlerts">0</div>
+                    <div class="label">Low Stock Alerts</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="icon text-info">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="value" id="totalPurchaseValue">Rs. 0</div>
+                    <div class="label">Total Purchase Value</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="mainTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="suppliers-tab" data-bs-toggle="tab"
+                                    data-bs-target="#suppliers" type="button" role="tab">
+                                    <i class="fas fa-truck me-2"></i>Suppliers
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="purchase-orders-tab" data-bs-toggle="tab"
+                                    data-bs-target="#purchase-orders" type="button" role="tab">
+                                    <i class="fas fa-clipboard-list me-2"></i>Purchase Orders
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="reorder-alerts-tab" data-bs-toggle="tab"
+                                    data-bs-target="#reorder-alerts" type="button" role="tab">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Reorder Alerts
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="grn-tab" data-bs-toggle="tab" data-bs-target="#grn"
+                                    type="button" role="tab">
+                                    <i class="fas fa-clipboard-check me-2"></i>GRN Records
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="mainTabContent">
+                            <!-- Suppliers Tab -->
+                            <div class="tab-pane fade show active" id="suppliers" role="tabpanel">
+                                <!-- Search and Filter Section -->
+                                <div class="row mb-4">
+                                    <div class="col">
+                                        <div class="card search-section">
+                                            <div class="card-body">
+                                                <div class="row g-3">
+                                                    <div class="col-md-4">
+                                                        <label for="searchSupplier" class="form-label">Search
+                                                            Suppliers</label>
+                                                        <input type="text" class="form-control" id="searchSupplier"
+                                                            placeholder="Name, contact, email...">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="filterSupplierCategory"
+                                                            class="form-label">Category</label>
+                                                        <select class="form-select" id="filterSupplierCategory">
+                                                            <option value="">All Categories</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="filterSupplierStatus"
+                                                            class="form-label">Status</label>
+                                                        <select class="form-select" id="filterSupplierStatus">
+                                                            <option value="">All Status</option>
+                                                            <option value="Active">Active</option>
+                                                            <option value="Inactive">Inactive</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label">&nbsp;</label>
+                                                        <div class="d-grid">
+                                                            <button class="btn btn-outline-secondary"
+                                                                onclick="clearSupplierFilters()">
+                                                                <i class="fas fa-times"></i> Clear
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Suppliers Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="suppliersTable">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Supplier Name</th>
+                                                <th>Contact Person</th>
+                                                <th>Phone</th>
+                                                <th>Email</th>
+                                                <th>Payment Terms</th>
+                                                <th>Status</th>
+                                                <th>Total POs</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="suppliersTableBody">
+                                            <!-- Suppliers will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Purchase Orders Tab -->
+                            <div class="tab-pane fade" id="purchase-orders" role="tabpanel">
+                                <!-- Purchase Orders Filter -->
+                                <div class="row mb-4">
+                                    <div class="col">
+                                        <div class="card search-section">
+                                            <div class="card-body">
+                                                <div class="row g-3">
+                                                    <div class="col-md-3">
+                                                        <label for="searchPurchaseOrder" class="form-label">Search
+                                                            PO</label>
+                                                        <input type="text" class="form-control" id="searchPurchaseOrder"
+                                                            placeholder="PO number, supplier...">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterPOStatus" class="form-label">Status</label>
+                                                        <select class="form-select" id="filterPOStatus">
+                                                            <option value="">All Status</option>
+                                                            <option value="Pending">Pending</option>
+                                                            <option value="Approved">Approved</option>
+                                                            <option value="Received">Received</option>
+                                                            <option value="Cancelled">Cancelled</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterPOSupplier"
+                                                            class="form-label">Supplier</label>
+                                                        <select class="form-select" id="filterPOSupplier">
+                                                            <option value="">All Suppliers</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterDateFrom" class="form-label">From Date</label>
+                                                        <input type="date" class="form-control" id="filterDateFrom">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterDateTo" class="form-label">To Date</label>
+                                                        <input type="date" class="form-control" id="filterDateTo">
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label">&nbsp;</label>
+                                                        <div class="d-grid">
+                                                            <button class="btn btn-outline-secondary btn-sm"
+                                                                onclick="clearPurchaseOrderFilters()">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Purchase Orders Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="purchaseOrdersTable">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>PO Number</th>
+                                                <th>Supplier</th>
+                                                <th>Order Date</th>
+                                                <th>Expected Date</th>
+                                                <th>Items</th>
+                                                <th>Total Value</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="purchaseOrdersTableBody">
+                                            <!-- Purchase orders will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Reorder Alerts Tab -->
+                            <div class="tab-pane fade" id="reorder-alerts" role="tabpanel">
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Low Stock
+                                                Items</h5>
+                                            <button class="btn btn-warning" onclick="generateBulkReorder()">
+                                                <i class="fas fa-shopping-cart"></i> Generate Bulk Reorder
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Low Stock Items Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="lowStockTable">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>
+                                                    <input type="checkbox" id="selectAllLowStock"
+                                                        onchange="toggleSelectAllLowStock()">
+                                                </th>
+                                                <th>Product</th>
+                                                <th>Current Stock</th>
+                                                <th>Reorder Level</th>
+                                                <th>Suggested Order Qty</th>
+                                                <th>Preferred Supplier</th>
+                                                <th>Unit Price</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="lowStockTableBody">
+                                            <!-- Low stock items will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- GRN Records Tab -->
+                            <div class="tab-pane fade" id="grn" role="tabpanel">
+                                <!-- GRN Filters -->
+                                <div class="row mb-4">
+                                    <div class="col">
+                                        <div class="card search-section">
+                                            <div class="card-body">
+                                                <div class="row g-3">
+                                                    <div class="col-md-3">
+                                                        <label for="searchGRN" class="form-label">Search GRN</label>
+                                                        <input type="text" class="form-control" id="searchGRN"
+                                                            placeholder="GRN No, PO No, Invoice...">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="filterGRNSupplier"
+                                                            class="form-label">Supplier</label>
+                                                        <select class="form-select" id="filterGRNSupplier">
+                                                            <option value="">All Suppliers</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterGRNDateFrom" class="form-label">Date
+                                                            From</label>
+                                                        <input type="date" class="form-control" id="filterGRNDateFrom">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="filterGRNDateTo" class="form-label">Date To</label>
+                                                        <input type="date" class="form-control" id="filterGRNDateTo">
+                                                    </div>
+                                                    <div class="col-md-2 d-flex align-items-end">
+                                                        <button class="btn btn-outline-secondary w-100"
+                                                            onclick="clearGRNFilters()">
+                                                            <i class="fas fa-times"></i> Clear
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRN Statistics -->
+                                <div class="row mb-4">
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="icon text-success">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </div>
+                                            <div class="value" id="totalGRNs">0</div>
+                                            <div class="label">Total GRNs</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="icon text-info">
+                                                <i class="fas fa-calendar-day"></i>
+                                            </div>
+                                            <div class="value" id="grnThisMonth">0</div>
+                                            <div class="label">This Month</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="icon text-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </div>
+                                            <div class="value" id="grnWithIssues">0</div>
+                                            <div class="label">With Issues</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="icon text-primary">
+                                                <i class="fas fa-dollar-sign"></i>
+                                            </div>
+                                            <div class="value">Rs. <span id="totalGRNValue">0</span></div>
+                                            <div class="label">Total Value</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRN Records Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="grnRecordsTable">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>GRN No</th>
+                                                <th>PO No</th>
+                                                <th>Supplier</th>
+                                                <th>Received Date</th>
+                                                <th>Received By</th>
+                                                <th>Items</th>
+                                                <th>Total Value</th>
+                                                <th>Quality Status</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="grnRecordsTableBody">
+                                            <!-- GRN records will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supplier Form Modal -->
+    <div class="modal fade" id="modalSupplierForm" tabindex="-1" aria-labelledby="modalSupplierFormLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modalSupplierFormLabel">
+                        <i class="fas fa-truck me-2"></i>Supplier Information
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="supplierForm" class="form" onsubmit="return false;">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-info-circle me-2"></i>Basic Information
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="supplierName" class="form-label">Supplier Name *</label>
+                                <input type="text" class="form-control input-element" id="supplierName"
+                                    placeholder="Enter supplier name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="supplierCode" class="form-label">Supplier Code *</label>
+                                <input type="text" class="form-control input-element" id="supplierCode"
+                                    placeholder="SUP001" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Contact Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-phone me-2"></i>Contact Information
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="contactPerson" class="form-label">Contact Person</label>
+                                <input type="text" class="form-control input-element" id="contactPerson"
+                                    placeholder="Contact person name">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone Number *</label>
+                                <input type="text" class="form-control input-element" id="phone"
+                                    placeholder="07XXXXXXXX" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="alternatePhone" class="form-label">Alternate Phone</label>
+                                <input type="text" class="form-control input-element" id="alternatePhone"
+                                    placeholder="Alternative contact number">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="supplierEmail" class="form-label">Email Address</label>
+                                <input type="email" class="form-control input-element" id="supplierEmail"
+                                    placeholder="supplier@email.com">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="supplierAddress" class="form-label">Address *</label>
+                                <textarea class="form-control input-element" id="supplierAddress" rows="3"
+                                    placeholder="Complete address" required></textarea>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="city" class="form-label">City</label>
+                                <input type="text" class="form-control input-element" id="city" placeholder="City">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="supplierIsActive" class="form-label">Status</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="supplierIsActive" checked>
+                                    <label class="form-check-label" for="supplierIsActive">
+                                        Active
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Business Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-briefcase me-2"></i>Business Information
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="paymentTerms" class="form-label">Payment Terms</label>
+                                <input type="text" class="form-control input-element" id="paymentTerms"
+                                    placeholder="e.g., Credit 30 days, Cash, Net 15">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="supplierCreditLimit" class="form-label">Credit Limit (Rs.)</label>
+                                <input type="number" class="form-control input-element" id="supplierCreditLimit"
+                                    value="0" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info" onclick="clearSupplierForm()">
+                                    <i class="fas fa-eraser"></i> Clear Form
+                                </button>
+                            </div>
+                            <div class="col-6 text-end">
+                                <button type="button" class="btn btn-primary" id="btnSubmitSupplier"
+                                    onclick="saveSupplier()">
+                                    <i class="fas fa-plus"></i> Add Supplier
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchase Order Form Modal -->
+    <div class="modal fade" id="modalPurchaseOrderForm" tabindex="-1" aria-labelledby="modalPurchaseOrderFormLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modalPurchaseOrderFormLabel">
+                        <i class="fas fa-shopping-cart me-2"></i>Purchase Order
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="purchaseOrderForm" class="form" onsubmit="return false;">
+                        <!-- PO Header -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="poNumber" class="form-label">PO Number</label>
+                                <input type="text" class="form-control" id="poNumber" readonly>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="poDate" class="form-label">Order Date</label>
+                                <input type="date" class="form-control input-element" id="poDate">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="expectedDate" class="form-label">Expected Date</label>
+                                <input type="date" class="form-control input-element" id="expectedDate">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="poSupplier" class="form-label">Supplier *</label>
+                                <select class="form-select input-element" id="poSupplier">
+                                    <option value="">Select Supplier</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Items Section -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-list me-2"></i>Order Items
+                                </h5>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="itemProduct" class="form-label">Product</label>
+                                <select class="form-select" id="itemProduct">
+                                    <option value="">Select Product</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="itemQuantity" class="form-label">Quantity</label>
+                                <input type="number" class="form-control" id="itemQuantity" min="1" step="1">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="itemUnitPrice" class="form-label">Unit Price</label>
+                                <input type="number" class="form-control" id="itemUnitPrice" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="itemTotal" class="form-label">Total</label>
+                                <input type="number" class="form-control" id="itemTotal" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-success" onclick="addPOItem()">
+                                        <i class="fas fa-plus"></i> Add
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered" id="poItemsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Total</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="poItemsTableBody">
+                                    <!-- Items will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- PO Summary -->
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="poNotes" class="form-label">Notes</label>
+                                <textarea class="form-control input-element" id="poNotes" rows="2"
+                                    placeholder="Additional notes for this purchase order"></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6>Order Summary</h6>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Items:</span>
+                                            <span id="poTotalItems">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Quantity:</span>
+                                            <span id="poTotalQuantity">0</span>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between fw-bold">
+                                            <span>Total Value:</span>
+                                            <span id="poTotalValue">Rs. 0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-info" onclick="clearPurchaseOrderForm()">
+                                    <i class="fas fa-eraser"></i> Clear Form
+                                </button>
+                            </div>
+                            <div class="col-6 text-end">
+                                <button type="button" class="btn btn-outline-warning me-2" id="btnUpdatePO"
+                                    style="display:none" onclick="updatePurchaseOrder()">
+                                    <i class="fas fa-save"></i> Update PO
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnSubmitPO"
+                                    onclick="submitPurchaseOrderForm()">
+                                    <i class="fas fa-shopping-cart"></i> Create Purchase Order
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PO Details Modal -->
+    <div class="modal fade" id="modalPODetails" tabindex="-1" aria-labelledby="modalPODetailsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPODetailsLabel">
+                        <i class="fas fa-eye me-2"></i>Purchase Order Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="poDetailsContent">
+                    <!-- PO details will be populated here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" id="btnReceivePO" onclick="receivePurchaseOrder()">
+                        <i class="fas fa-check"></i> Mark as Received
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRN (Goods Received Note) Modal -->
+    <div class="modal fade" id="modalGRN" tabindex="-1" aria-labelledby="modalGRNLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalGRNLabel">
+                        <i class="fas fa-clipboard-check me-2"></i>Goods Received Note (GRN)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="grnForm" onsubmit="return false;">
+                        <!-- GRN Header -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">GRN Number</label>
+                                <input type="text" class="form-control" id="grnNumber" readonly>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">PO Number</label>
+                                <input type="text" class="form-control" id="grnPONumber" readonly>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Received Date *</label>
+                                <input type="date" class="form-control" id="grnReceivedDate" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Received By *</label>
+                                <input type="text" class="form-control" id="grnReceivedBy" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Supplier</label>
+                                <input type="text" class="form-control" id="grnSupplier" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Invoice Number *</label>
+                                <input type="text" class="form-control" id="grnInvoiceNumber" required>
+                            </div>
+                        </div>
+
+                        <!-- Received Items Table -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 class="text-success border-bottom pb-2">
+                                    <i class="fas fa-boxes me-2"></i>Received Items
+                                </h6>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive mb-4">
+                            <table class="table table-bordered" id="grnItemsTable">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th>Batch No *</th>
+                                        <th>MFG Date</th>
+                                        <th>EXP Date *</th>
+                                        <th>Ordered Qty</th>
+                                        <th>Received Qty *</th>
+                                        <th>Damaged Qty</th>
+                                        <th>Unit Cost</th>
+                                        <th>Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grnItemsTableBody">
+                                    <!-- GRN items will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- GRN Summary Section -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-success mb-3">
+                                            <i class="fas fa-calculator me-2"></i>Summary
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <strong>Total Ordered Qty:</strong>
+                                                <div class="h5 text-primary" id="grnTotalOrdered">0</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Total Received Qty:</strong>
+                                                <div class="h5 text-success" id="grnTotalReceived">0</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Total Damaged Qty:</strong>
+                                                <div class="h5 text-danger" id="grnTotalDamaged">0</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Total GRN Value:</strong>
+                                                <div class="h5 text-info">Rs. <span id="grnTotalValue">0.00</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quality Check & Notes -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Quality Check Status *</label>
+                                <select class="form-select" id="grnQualityStatus" required>
+                                    <option value="">Select Status</option>
+                                    <option value="Approved">✅ Approved</option>
+                                    <option value="Approved with Minor Issues">⚠️ Approved with Minor Issues</option>
+                                    <option value="Rejected">❌ Rejected</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Storage Location *</label>
+                                <select class="form-select" id="grnStorageLocation" required>
+                                    <option value="">Select Location</option>
+                                    <option value="Warehouse A">Warehouse A</option>
+                                    <option value="Warehouse B">Warehouse B</option>
+                                    <option value="Cold Storage">Cold Storage</option>
+                                    <option value="Main Store">Main Store</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Remarks</label>
+                                <textarea class="form-control" id="grnNotes" rows="3"
+                                    placeholder="Document any issues: Short delivery, Damaged items, Price mismatch, Quality concerns..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- GRN Summary -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="alert alert-info">
+                                    <strong>Note:</strong> Upon submission, batches will be automatically created for
+                                    each received item in the inventory.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                            <div class="col-8 text-end">
+                                <button type="button" class="btn btn-outline-primary me-2" onclick="saveGRNDraft()">
+                                    <i class="fas fa-save"></i> Save GRN
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="saveAndUpdateInventory()">
+                                    <i class="fas fa-check-circle"></i> Save & Update Inventory
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary ms-2" onclick="printGRN()">
+                                    <i class="fas fa-print"></i> Print GRN
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reorder Request Modal (BULK) -->
+    <div class="modal fade" id="modalReorderRequest" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clipboard-list me-2"></i>Reorder Request (BULK)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reorderRequestForm" onsubmit="return false;">
+                        <!-- Header Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Supplier *</label>
+                                <select class="form-select" id="reorderSupplier" required>
+                                    <option value="">Select Supplier</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Manager</label>
+                                <input type="text" class="form-control" id="reorderManager" value="Current User"
+                                    readonly>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Request Date</label>
+                                <input type="date" class="form-control" id="reorderRequestDate" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-success"
+                                        onclick="autoSuggestLowStock()">
+                                        <i class="fas fa-magic"></i> Auto-suggest Low Stock
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="copyLastRequest()">
+                                        <i class="fas fa-copy"></i> Copy from Last Request
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                        onclick="importFromCSV()">
+                                        <i class="fas fa-file-upload"></i> Import from CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Item Section -->
+                        <div class="row mb-3 bg-light p-3 rounded">
+                            <div class="col-md-3">
+                                <label class="form-label">Product</label>
+                                <select class="form-select" id="reorderProduct">
+                                    <option value="">Select Product</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Current Stock</label>
+                                <input type="text" class="form-control" id="reorderCurrentStock" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Reorder Point</label>
+                                <input type="text" class="form-control" id="reorderPoint" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Order Qty</label>
+                                <input type="number" class="form-control" id="reorderQuantity" min="1">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Est. Price</label>
+                                <input type="number" class="form-control" id="reorderPrice" step="0.01">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-success w-100" onclick="addReorderItem()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive mb-3">
+                            <table class="table table-bordered table-hover" id="reorderItemsTable">
+                                <thead class="table-warning">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th>Current Stock</th>
+                                        <th>Reorder Point</th>
+                                        <th>Suggested Qty</th>
+                                        <th>Order Qty</th>
+                                        <th>Est. Price</th>
+                                        <th>Line Total</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reorderItemsTableBody">
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted">No items added yet. Use the form
+                                            above to add products.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Summary & Notes -->
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">Additional Notes</label>
+                                <textarea class="form-control" id="reorderNotes" rows="3"
+                                    placeholder="Any special instructions or notes for this reorder request..."></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold">Summary</h6>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Total Items:</span>
+                                            <span class="fw-bold" id="reorderTotalItems">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Total Cost:</span>
+                                            <span class="fw-bold text-success" id="reorderTotalCost">Rs. 0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-danger" onclick="removeAllReorderItems()">
+                                    <i class="fas fa-trash-alt"></i> Remove All
+                                </button>
+                            </div>
+                            <div class="col-6 text-end">
+                                <button type="button" class="btn btn-outline-secondary me-2"
+                                    onclick="saveReorderDraft()">
+                                    <i class="fas fa-save"></i> Save as Draft
+                                </button>
+                                <button type="button" class="btn btn-warning" onclick="submitReorderRequest()">
+                                    <i class="fas fa-paper-plane"></i> Submit Request
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reorder Approval Modal -->
+    <div class="modal fade" id="modalReorderApproval" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle me-2"></i>Reorder Approval
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Request Details (Read-only) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Request ID:</strong> <span id="approvalRequestId">#XXXXX</span><br>
+                                        <strong>Supplier:</strong> <span id="approvalSupplier">-</span><br>
+                                        <strong>Requested By:</strong> <span id="approvalRequestedBy">-</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Request Date:</strong> <span id="approvalRequestDate">-</span><br>
+                                        <strong>Status:</strong> <span id="approvalStatus"
+                                            class="badge bg-warning">Pending</span><br>
+                                        <strong>Total Cost:</strong> <span id="approvalTotalCost">Rs. 0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table (Read-only) -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Current Stock</th>
+                                    <th>Reorder Qty</th>
+                                    <th>Est. Price</th>
+                                    <th>Line Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approvalItemsTableBody">
+                                <!-- Items will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Manager Notes (Read-only) -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Request Notes:</label>
+                            <div class="border rounded p-2 bg-light" id="approvalRequestNotes">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Approval Section -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Decision *</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="approvalDecision" id="approveRadio"
+                                    value="approve">
+                                <label class="form-check-label text-success" for="approveRadio">
+                                    <i class="fas fa-check-circle"></i> Approve Request
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="approvalDecision" id="rejectRadio"
+                                    value="reject">
+                                <label class="form-check-label text-danger" for="rejectRadio">
+                                    <i class="fas fa-times-circle"></i> Reject Request
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Approval Notes *</label>
+                            <textarea class="form-control" id="approvalNotes" rows="3"
+                                placeholder="Required if rejected. Provide reason and feedback..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="row">
+                        <div class="col-6">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                        </div>
+                        <div class="col-6 text-end">
+                            <button type="button" class="btn btn-danger me-2" onclick="processApproval('reject')">
+                                <i class="fas fa-times"></i> Reject Request
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="processApproval('approve')">
+                                <i class="fas fa-check"></i> Approve Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Common JS -->
+    <script src="/js/common.js"></script>
+    <!-- Suppliers JS -->
+    <script src="/js/suppliers.js"></script>
+</body>
+
+</html>

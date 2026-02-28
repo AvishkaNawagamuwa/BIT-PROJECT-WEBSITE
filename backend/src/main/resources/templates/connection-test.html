@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - Frontend-Backend සම්බන්ධය පරීක්ෂාව
+    Sampath Grocery Store - Connection Test Page
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - Frontend සහ Backend සම්බන්ධය පරීක්ෂා කිරීම
+    - API endpoint test කිරීම
+    - දෝෂ හොයාගැනීම (Debugging)
+    - Real-time connection status
+    - API response test
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend-Backend Connection Test | Sampath Grocery</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link rel="stylesheet" href="/assets/bootstrap-5.3.7/css/bootstrap.min.css">
+
+    <!-- SweetAlert2 CSS - සුන්දර alerts සඳහා -->
+    <link rel="stylesheet" href="/assets/sweetalert2/sweetalert2.min.css">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 0;
+        }
+
+        .test-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            border-radius: 15px 15px 0 0 !important;
+        }
+
+        .btn-test {
+            margin: 5px;
+        }
+
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .status-unknown {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-connected {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #dc3545;
+            color: white;
+        }
+
+        .log-success {
+            color: #4ade80;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-warning {
+            color: #fbbf24;
+        }
+
+        .config-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container test-container">
+        <!-- Header -->
+        <div class="text-center text-white mb-4">
+            <h1 class="display-4">🔌 Frontend-Backend Connection Test</h1>
+            <p class="lead">Test communication between your frontend and Spring Boot backend</p>
+        </div>
+
+        <!-- Connection Status Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📡 Connection Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Backend URL:</h6>
+                        <div class="config-item" id="backendUrl">Loading...</div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Status:</h6>
+                        <span id="connectionStatus" class="status-badge status-unknown">Unknown</span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary btn-test" onclick="checkConnection()">
+                        🔍 Check Connection
+                    </button>
+                    <button class="btn btn-success btn-test" onclick="checkHealth()">
+                        ❤️ Health Check
+                    </button>
+                    <button class="btn btn-secondary btn-test" onclick="clearConsole()">
+                        🗑️ Clear Console
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Endpoints Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">🧪 Test Endpoints</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <h6>GET Request Test:</h6>
+                        <button class="btn btn-info btn-test" onclick="testPing()">
+                            GET /api/test/ping
+                        </button>
+                        <button class="btn btn-info btn-test" onclick="testGreet()">
+                            GET /api/test/greet/{name}
+                        </button>
+                    </div>
+
+                    <div class="col-md-12 mb-3">
+                        <h6>POST Request Test:</h6>
+                        <button class="btn btn-warning btn-test" onclick="testEcho()">
+                            POST /api/test/echo
+                        </button>
+                    </div>
+
+                    <div class="col-md-12">
+                        <h6>Error Handling Test:</h6>
+                        <button class="btn btn-danger btn-test" onclick="testError()">
+                            Test Error Response
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Output Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📋 Console Output</h5>
+            </div>
+            <div class="card-body">
+                <div id="consoleOutput" class="console-output">
+                    <span class="log-info">Waiting for test execution...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Checklist Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">🐛 CORS Troubleshooting Checklist</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    <li class="list-group-item">✅ Is Spring Boot backend running on http://localhost:8080?</li>
+                    <li class="list-group-item">✅ Is frontend running on http://localhost:8000?</li>
+                    <li class="list-group-item">✅ Check browser console (F12) for CORS errors</li>
+                    <li class="list-group-item">✅ Verify CorsConfig.java has correct allowed origins</li>
+                    <li class="list-group-item">✅ Check SecurityConfig.java allows CORS</li>
+                    <li class="list-group-item">✅ Look for "Access-Control-Allow-Origin" in response headers</li>
+                    <li class="list-group-item">✅ Try in incognito mode (disable browser extensions)</li>
+                    <li class="list-group-item">✅ Check MySQL database is running and accessible</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="/assets/bootstrap-5.3.7/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SweetAlert2 JS -->
+    <script src="/assets/sweetalert2/sweetalert2.min.js"></script>
+
+    <!-- Simple API Service -->
+    <script src="/js/simple-api-service.js"></script>
+
+    <!-- Test Script -->
+    <script>
+        // Display backend URL on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('backendUrl').textContent = API_CONFIG.BASE_URL;
+            logToConsole('info', 'Test page loaded. Ready to test connection.');
+        });
+
+        // Console logging function
+        function logToConsole(type, message, data = null) {
+            const output = document.getElementById('consoleOutput');
+            const timestamp = new Date().toLocaleTimeString();
+
+            let cssClass = 'log-info';
+            let icon = 'ℹ️';
+
+            switch (type) {
+                case 'success':
+                    cssClass = 'log-success';
+                    icon = '✅';
+                    break;
+                case 'error':
+                    cssClass = 'log-error';
+                    icon = '❌';
+                    break;
+                case 'warning':
+                    cssClass = 'log-warning';
+                    icon = '⚠️';
+                    break;
+            }
+
+            let logMessage = `[${timestamp}] <span class="${cssClass}">${icon} ${message}</span>\n`;
+
+            if (data) {
+                logMessage += `<span class="log-info">Data: ${JSON.stringify(data, null, 2)}</span>\n`;
+            }
+
+            output.innerHTML += logMessage;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Clear console
+        function clearConsole() {
+            document.getElementById('consoleOutput').innerHTML = '<span class="log-info">Console cleared.</span>\n';
+        }
+
+        // Update connection status
+        function updateConnectionStatus(isConnected) {
+            const statusElement = document.getElementById('connectionStatus');
+            if (isConnected) {
+                statusElement.textContent = 'Connected';
+                statusElement.className = 'status-badge status-connected';
+            } else {
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'status-badge status-disconnected';
+            }
+        }
+
+        // Test 1: Check Connection
+        async function checkConnection() {
+            logToConsole('info', 'Testing connection to backend...');
+            try {
+                const response = await SimpleAPI.testConnection();
+                logToConsole('success', 'Connection successful!', response);
+                updateConnectionStatus(true);
+                showSuccess('Backend is reachable!');
+            } catch (error) {
+                logToConsole('error', 'Connection failed: ' + error.message);
+                updateConnectionStatus(false);
+                showError(error.message, 'Connection Failed');
+            }
+        }
+
+        // Test 2: Health Check
+        async function checkHealth() {
+            logToConsole('info', 'Checking backend health...');
+            try {
+                const response = await SimpleAPI.checkHealth();
+                logToConsole('success', 'Health check passed!', response);
+                updateConnectionStatus(true);
+                showSuccess(`Backend is healthy! Version: ${response.version}`);
+            } catch (error) {
+                logToConsole('error', 'Health check failed: ' + error.message);
+                updateConnectionStatus(false);
+                showError(error.message, 'Health Check Failed');
+            }
+        }
+
+        // Test 3: Simple GET Request
+        async function testPing() {
+            logToConsole('info', 'Testing GET /api/test/ping...');
+            try {
+                const response = await SimpleAPI.testConnection();
+                logToConsole('success', 'GET request successful!', response);
+                showSuccess(response.message);
+            } catch (error) {
+                logToConsole('error', 'GET request failed: ' + error.message);
+                showError(error.message);
+            }
+        }
+
+        // Test 4: GET with Path Parameter
+        async function testGreet() {
+            const name = 'SampathGrocery';
+            logToConsole('info', `Testing GET /api/test/greet/${name}...`);
+            try {
+                const response = await SimpleAPI.testGreet(name);
+                logToConsole('success', 'GET with path parameter successful!', response);
+                showSuccess(response.message);
+            } catch (error) {
+                logToConsole('error', 'GET request failed: ' + error.message);
+                showError(error.message);
+            }
+        }
+
+        // Test 5: POST Request
+        async function testEcho() {
+            const testData = {
+                message: 'Hello from frontend!',
+                timestamp: new Date().toISOString(),
+                source: 'Connection Test Page'
+            };
+
+            logToConsole('info', 'Testing POST /api/test/echo...', testData);
+            try {
+                const response = await SimpleAPI.testPost(testData);
+                logToConsole('success', 'POST request successful!', response);
+                showSuccess('POST request completed successfully!');
+            } catch (error) {
+                logToConsole('error', 'POST request failed: ' + error.message);
+                showError(error.message);
+            }
+        }
+
+        // Test 6: Error Handling
+        async function testError() {
+            logToConsole('info', 'Testing error handling...');
+            try {
+                const response = await SimpleAPI.testError();
+                logToConsole('warning', 'Received error response:', response);
+            } catch (error) {
+                logToConsole('success', 'Error handling works correctly!', {
+                    message: error.message,
+                    status: error.status
+                });
+                showInfo('Error handling is working as expected!');
+            }
+        }
+    </script>
+</body>
+
+</html>

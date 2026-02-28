@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - විශ්ලේෂණය සහ රිපෝර්ට්
+    Sampath Grocery Store - Analytics & Reports
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - විකුණුම් සංඛ්‍යාන සහ charts
+    - ලාභ සංඛ්‍යාන පෙන්වීම
+    - නිෂ්පාදන විශ්ලේෂණය
+    - Chart.js භාවිතයෙන් සජීවී charts
+    - PDF/Excel export විශේෂාංග
+    - අද මස අනුව රිපෝර්ට්
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampath Grocery Store - Analytics & Reports</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link href="/assets/bootstrap-5.3.7/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome - Icons සඳහා -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Chart.js - Charts කිරීම සඳහා -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SweetAlert2 - සුන්දර alerts සඳහා -->
+    <link href="/assets/sweetalert2/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Custom CSS - අපේ විශේෂ styles -->
+    <link rel="stylesheet" href="/css/common.css">
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="sidebarLabel">
+                <i class="fas fa-leaf me-2"></i>Sampath Grocery
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link" href="/dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/inventory">
+                    <i class="fas fa-boxes me-2"></i> Inventory Management
+                </a>
+                <a class="nav-link" href="/pos">
+                    <i class="fas fa-cash-register me-2"></i> POS (Point of Sale)
+                </a>
+                <a class="nav-link" href="/orders">
+                    <i class="fas fa-shopping-cart me-2"></i> Order Management
+                </a>
+                <a class="nav-link" href="/customers">
+                    <i class="fas fa-users me-2"></i> Customer Management
+                </a>
+                <a class="nav-link" href="/payments">
+                    <i class="fas fa-credit-card me-2"></i> Payment & Discounts
+                </a>
+                <a class="nav-link" href="/suppliers">
+                    <i class="fas fa-truck me-2"></i> Suppliers & Reorders
+                </a>
+                <a class="nav-link" href="/deliveries">
+                    <i class="fas fa-shipping-fast me-2"></i> Delivery Management
+                </a>
+                <a class="nav-link active" href="/analytics">
+                    <i class="fas fa-chart-bar me-2"></i> Analytics & Reports
+                </a> <a class="nav-link" href="/users">
+                    <i class="fas fa-user-shield me-2"></i> User Management
+                </a>
+                <a class="nav-link" href="/employees">
+                    <i class="fas fa-id-card me-2"></i> Employee Management
+                </a>
+                <a class="nav-link" href="/role-management">
+                    <i class="fas fa-user-tag me-2"></i> Role Management
+                </a> <a class="nav-link" href="/settings">
+                    <i class="fas fa-cog me-2"></i> Settings
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content Wrapper for Blur Effect -->
+    <div class="main-content-wrapper">
+        <!-- Main Content -->
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card header-card">
+                        <div class="card-header title">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <button class="btn btn-outline-light me-3" type="button" data-bs-toggle="offcanvas"
+                                        data-bs-target="#sidebar">
+                                        <i class="fas fa-bars"></i>
+                                    </button>
+                                    <h2 class="d-inline-block mb-0">
+                                        <i class="fas fa-chart-bar me-2"></i>Analytics & Reports
+                                    </h2>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="d-flex gap-3" role="group">
+                                        <button class="btn btn-light premium-btn" onclick="exportReport('pdf')">
+                                            <i class="fas fa-file-pdf"></i> Export PDF
+                                        </button>
+                                        <button class="btn btn-light premium-btn" onclick="exportReport('excel')">
+                                            <i class="fas fa-file-excel"></i> Export Excel
+                                        </button>
+                                        <button class="btn btn-light premium-btn" data-bs-toggle="modal"
+                                            data-bs-target="#customReportModal">
+                                            <i class="fas fa-plus"></i> Custom Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Range & Quick Filters -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Date Range</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="startDate">
+                                        <span class="input-group-text">to</span>
+                                        <input type="date" class="form-control" id="endDate">
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-outline-primary w-100" onclick="applyDateFilter()">
+                                        <i class="fas fa-filter"></i> Apply
+                                    </button>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" class="btn btn-outline-secondary quick-filter active"
+                                            data-period="today">Today</button>
+                                        <button type="button" class="btn btn-outline-secondary quick-filter"
+                                            data-period="week">This Week</button>
+                                        <button type="button" class="btn btn-outline-secondary quick-filter"
+                                            data-period="month">This Month</button>
+                                        <button type="button" class="btn btn-outline-secondary quick-filter"
+                                            data-period="quarter">This Quarter</button>
+                                        <button type="button" class="btn btn-outline-secondary quick-filter"
+                                            data-period="year">This Year</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics Cards -->
+            <div class="row stats-section g-4 mb-4">
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover revenue-card">
+                        <div class="icon text-success">
+                            <i class="fas fa-rupee-sign"></i>
+                        </div>
+                        <div class="value" id="totalRevenue">Rs. 0</div>
+                        <div class="label">Total Revenue</div>
+                        <div class="change positive" id="revenueChange">+0%</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-primary">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="value" id="totalOrders">0</div>
+                        <div class="label">Total Orders</div>
+                        <div class="change positive" id="ordersChange">+0%</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-info">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="value" id="newCustomers">0</div>
+                        <div class="label">New Customers</div>
+                        <div class="change positive" id="customersChange">+0%</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="stats-card lift-hover">
+                        <div class="icon text-warning">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="value" id="avgOrderValue">Rs. 0</div>
+                        <div class="label">Avg Order Value</div>
+                        <div class="change positive" id="aovChange">+0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1 -->
+            <div class="row g-4 mb-4">
+                <!-- Revenue Trend Chart -->
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>Revenue Trend
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="revenueChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Products Chart -->
+                <div class="col-lg-4">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-star me-2"></i>Top Products
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="topProductsChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 2 -->
+            <div class="row g-4 mb-4">
+                <!-- Orders by Status -->
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie me-2"></i>Orders by Status
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="orderStatusChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Acquisition -->
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user-plus me-2"></i>Customer Acquisition
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="customerChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Reports Section -->
+            <div class="row g-4 mb-4">
+                <!-- Sales Report -->
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>Sales Report
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th>Revenue</th>
+                                            <th>Orders</th>
+                                            <th>Growth</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="salesReportBody">
+                                        <!-- Sales data will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Alerts -->
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Inventory Alerts
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="inventoryAlerts">
+                                <!-- Inventory alerts will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="row g-4 mb-4">
+                <div class="col-12">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-tachometer-alt me-2"></i>Performance Metrics
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="metric-item">
+                                        <div class="metric-icon text-success">
+                                            <i class="fas fa-percentage"></i>
+                                        </div>
+                                        <div class="metric-content">
+                                            <div class="metric-label">Conversion Rate</div>
+                                            <div class="metric-value" id="conversionRate">0%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="metric-item">
+                                        <div class="metric-icon text-primary">
+                                            <i class="fas fa-redo"></i>
+                                        </div>
+                                        <div class="metric-content">
+                                            <div class="metric-label">Customer Retention</div>
+                                            <div class="metric-value" id="retentionRate">0%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="metric-item">
+                                        <div class="metric-icon text-warning">
+                                            <i class="fas fa-shipping-fast"></i>
+                                        </div>
+                                        <div class="metric-content">
+                                            <div class="metric-label">Delivery Success</div>
+                                            <div class="metric-value" id="deliverySuccess">0%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="metric-item">
+                                        <div class="metric-icon text-info">
+                                            <i class="fas fa-clock"></i>
+                                        </div>
+                                        <div class="metric-content">
+                                            <div class="metric-label">Avg Fulfillment</div>
+                                            <div class="metric-value" id="avgFulfillment">0 hours</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Report Modal -->
+    <div class="modal fade" id="customReportModal" tabindex="-1" aria-labelledby="customReportModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="customReportModalLabel">
+                        <i class="fas fa-plus me-2"></i>Create Custom Report
+                    </h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="customReportForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="reportName" class="form-label">Report Name *</label>
+                                <input type="text" class="form-control input-element" id="reportName" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="reportType" class="form-label">Report Type *</label>
+                                <select class="form-select input-element" id="reportType" required>
+                                    <option value="">Select Type</option>
+                                    <option value="sales">Sales Report</option>
+                                    <option value="inventory">Inventory Report</option>
+                                    <option value="customer">Customer Report</option>
+                                    <option value="delivery">Delivery Report</option>
+                                    <option value="financial">Financial Report</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="customStartDate" class="form-label">Start Date *</label>
+                                <input type="date" class="form-control input-element" id="customStartDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="customEndDate" class="form-label">End Date *</label>
+                                <input type="date" class="form-control input-element" id="customEndDate" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Include Metrics</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeRevenue" checked>
+                                        <label class="form-check-label" for="includeRevenue">Revenue</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeOrders" checked>
+                                        <label class="form-check-label" for="includeOrders">Orders</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeCustomers">
+                                        <label class="form-check-label" for="includeCustomers">Customers</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeProducts">
+                                        <label class="form-check-label" for="includeProducts">Products</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeDeliveries">
+                                        <label class="form-check-label" for="includeDeliveries">Deliveries</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="includeCharts">
+                                        <label class="form-check-label" for="includeCharts">Charts</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="reportDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="reportDescription" rows="3"
+                                placeholder="Brief description of the report purpose..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="generateCustomReport()">
+                                <i class="fas fa-chart-bar"></i> Generate Report
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="/assets/sweetalert2/sweetalert2.min.js"></script>
+    <!-- Common JS -->
+    <script src="/js/common.js"></script>
+    <!-- Analytics JS -->
+    <script src="/js/analytics.js"></script>
+</body>
+
+</html>

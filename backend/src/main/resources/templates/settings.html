@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    සම්පත් සිල්ලර වෙළඳසැල - සත්‍තුඹිත් සතුවෙන්
+    Sampath Grocery Store - Settings Page
+    
+    මෙම පිටුවේ විශේෂාංග:
+    - පරිශීලක ප්‍රෝෆායිලය සංස්කරණය
+    - ප්‍රණාලි සත්‍තුවෙන් යාවත්කාලීන කිරීම
+    - මුරපදය වෙනස් කිරීම
+    - Email/SMS සත්‍තුවෙන්
+    - දතාබේස් database සත්‍තුවෙන්
+-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sampath Grocery Store - Settings</title>
+
+    <!-- Bootstrap CSS - UI components සඳහා -->
+    <link href="/assets/bootstrap-5.3.7/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome - Icons සඳහා -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- SweetAlert2 - සුන්දර alerts සඳහා -->
+    <link href="/assets/sweetalert2/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Custom CSS - අපේ විශේෂ styles -->
+    <link rel="stylesheet" href="/css/common.css">
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="sidebarLabel">
+                <i class="fas fa-leaf me-2"></i>Sampath Grocery
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link" href="/dashboard">
+                    <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/inventory">
+                    <i class="fas fa-boxes me-2"></i> Inventory Management
+                </a>
+                <a class="nav-link" href="/pos">
+                    <i class="fas fa-cash-register me-2"></i> POS (Point of Sale)
+                </a>
+                <a class="nav-link" href="/orders">
+                    <i class="fas fa-shopping-cart me-2"></i> Order Management
+                </a>
+                <a class="nav-link" href="/customers">
+                    <i class="fas fa-users me-2"></i> Customer Management
+                </a>
+                <a class="nav-link" href="/payments">
+                    <i class="fas fa-credit-card me-2"></i> Payment & Discounts
+                </a>
+                <a class="nav-link" href="/suppliers">
+                    <i class="fas fa-truck me-2"></i> Suppliers & Reorders
+                </a>
+                <a class="nav-link" href="/deliveries">
+                    <i class="fas fa-shipping-fast me-2"></i> Delivery Management
+                </a>
+                <a class="nav-link" href="/analytics">
+                    <i class="fas fa-chart-bar me-2"></i> Analytics & Reports
+                </a> <a class="nav-link" href="/users">
+                    <i class="fas fa-user-shield me-2"></i> User Management
+                </a>
+                <a class="nav-link" href="/employees">
+                    <i class="fas fa-id-card me-2"></i> Employee Management
+                </a>
+                <a class="nav-link" href="/role-management">
+                    <i class="fas fa-user-tag me-2"></i> Role Management
+                </a> <a class="nav-link active" href="/settings">
+                    <i class="fas fa-cog me-2"></i> Settings
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content Wrapper for Blur Effect -->
+    <div class="main-content-wrapper">
+        <!-- Main Content -->
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card header-card">
+                        <div class="card-header title">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <button class="btn btn-outline-light me-3" type="button" data-bs-toggle="offcanvas"
+                                        data-bs-target="#sidebar">
+                                        <i class="fas fa-bars"></i>
+                                    </button>
+                                    <h2 class="d-inline-block mb-0">
+                                        <i class="fas fa-cog me-2"></i>Settings
+                                    </h2>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-light premium-btn" onclick="saveAllSettings()">
+                                        <i class="fas fa-save"></i> Save All Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Navigation -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card glass-card">
+                        <div class="card-body p-0">
+                            <nav class="nav nav-pills nav-fill">
+                                <a class="nav-link settings-tab active" data-tab="general" href="#general">
+                                    <i class="fas fa-cog me-2"></i>General
+                                </a>
+                                <a class="nav-link settings-tab" data-tab="users" href="#users">
+                                    <i class="fas fa-users-cog me-2"></i>User Management
+                                </a>
+                                <a class="nav-link settings-tab" data-tab="notifications" href="#notifications">
+                                    <i class="fas fa-bell me-2"></i>Notifications
+                                </a>
+                                <a class="nav-link settings-tab" data-tab="security" href="#security">
+                                    <i class="fas fa-shield-alt me-2"></i>Security
+                                </a>
+                                <a class="nav-link settings-tab" data-tab="backup" href="#backup">
+                                    <i class="fas fa-database me-2"></i>Backup & Data
+                                </a>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Content -->
+            <div class="settings-content">
+                <!-- General Settings -->
+                <div id="general" class="settings-panel active">
+                    <div class="row g-4">
+                        <!-- Store Information -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-store me-2"></i>Store Information
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="storeInfoForm">
+                                        <div class="mb-3">
+                                            <label for="storeName" class="form-label">Store Name *</label>
+                                            <input type="text" class="form-control input-element" id="storeName"
+                                                value="Sampath Grocery Store" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="storeAddress" class="form-label">Address</label>
+                                            <textarea class="form-control" id="storeAddress"
+                                                rows="3">123 Main Street, Kandy 20000, Sri Lanka</textarea>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="storePhone" class="form-label">Phone</label>
+                                                    <input type="tel" class="form-control" id="storePhone"
+                                                        value="+94 81 222 3333">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="storeEmail" class="form-label">Email</label>
+                                                    <input type="email" class="form-control" id="storeEmail"
+                                                        value="info@sampathgrocery.lk">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="businessHours" class="form-label">Business Hours</label>
+                                            <input type="text" class="form-control" id="businessHours"
+                                                value="Monday - Sunday: 6:00 AM - 10:00 PM">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Preferences -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-sliders-h me-2"></i>System Preferences
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="currency" class="form-label">Currency</label>
+                                        <select class="form-select" id="currency">
+                                            <option value="LKR" selected>Sri Lankan Rupee (Rs.)</option>
+                                            <option value="USD">US Dollar ($)</option>
+                                            <option value="EUR">Euro (€)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="timezone" class="form-label">Timezone</label>
+                                        <select class="form-select" id="timezone">
+                                            <option value="Asia/Colombo" selected>Asia/Colombo (UTC+5:30)</option>
+                                            <option value="UTC">UTC (UTC+0:00)</option>
+                                            <option value="Asia/Dubai">Asia/Dubai (UTC+4:00)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="dateFormat" class="form-label">Date Format</label>
+                                        <select class="form-select" id="dateFormat">
+                                            <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
+                                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="autoBackup" checked>
+                                        <label class="form-check-label" for="autoBackup">
+                                            Enable Auto Backup
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="lowStockAlerts" checked>
+                                        <label class="form-check-label" for="lowStockAlerts">
+                                            Low Stock Alerts
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Management -->
+                <div id="users" class="settings-panel">
+                    <div class="row g-4">
+                        <!-- Add User -->
+                        <div class="col-lg-4">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user-plus me-2"></i>Add New User
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="addUserForm">
+                                        <div class="mb-3">
+                                            <label for="userName" class="form-label">Full Name *</label>
+                                            <input type="text" class="form-control input-element" id="userName"
+                                                required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userEmail" class="form-label">Email *</label>
+                                            <input type="email" class="form-control input-element" id="userEmail"
+                                                required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userRole" class="form-label">Role *</label>
+                                            <select class="form-select input-element" id="userRole" required>
+                                                <option value="">Select Role</option>
+                                                <option value="admin">Administrator</option>
+                                                <option value="manager">Manager</option>
+                                                <option value="cashier">Cashier</option>
+                                                <option value="staff">Staff</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="userPassword" class="form-label">Password *</label>
+                                            <input type="password" class="form-control input-element" id="userPassword"
+                                                required>
+                                        </div>
+                                        <button type="button" class="btn btn-primary w-100" onclick="addUser()">
+                                            <i class="fas fa-plus"></i> Add User
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Users List -->
+                        <div class="col-lg-8">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-users me-2"></i>System Users
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Email</th>
+                                                    <th>Role</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="usersTableBody">
+                                                <!-- Users will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div id="notifications" class="settings-panel">
+                    <div class="row g-4">
+                        <!-- Email Notifications -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-envelope me-2"></i>Email Notifications
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="emailNewOrders" checked>
+                                        <label class="form-check-label" for="emailNewOrders">
+                                            New Order Alerts
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="emailLowStock" checked>
+                                        <label class="form-check-label" for="emailLowStock">
+                                            Low Stock Alerts
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="emailDailyReports">
+                                        <label class="form-check-label" for="emailDailyReports">
+                                            Daily Sales Reports
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="emailPaymentAlerts" checked>
+                                        <label class="form-check-label" for="emailPaymentAlerts">
+                                            Payment Confirmation
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="notificationEmail" class="form-label">Notification Email</label>
+                                        <input type="email" class="form-control" id="notificationEmail"
+                                            value="admin@sampathgrocery.lk">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SMS Notifications -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-sms me-2"></i>SMS Notifications
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="smsOrderConfirm" checked>
+                                        <label class="form-check-label" for="smsOrderConfirm">
+                                            Order Confirmations
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="smsDeliveryUpdate" checked>
+                                        <label class="form-check-label" for="smsDeliveryUpdate">
+                                            Delivery Updates
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="smsPromotions">
+                                        <label class="form-check-label" for="smsPromotions">
+                                            Promotional Messages
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="smsProvider" class="form-label">SMS Provider</label>
+                                        <select class="form-select" id="smsProvider">
+                                            <option value="dialog" selected>Dialog Axiata</option>
+                                            <option value="mobitel">Mobitel</option>
+                                            <option value="hutch">Hutch</option>
+                                            <option value="airtel">Airtel</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="smsApiKey" class="form-label">API Key</label>
+                                        <input type="password" class="form-control" id="smsApiKey"
+                                            placeholder="Enter your SMS API key">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security -->
+                <div id="security" class="settings-panel">
+                    <div class="row g-4">
+                        <!-- Password Policy -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-key me-2"></i>Password Policy
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="minPasswordLength" class="form-label">Minimum Password
+                                            Length</label>
+                                        <input type="number" class="form-control" id="minPasswordLength" value="8"
+                                            min="6" max="20">
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="requireUppercase" checked>
+                                        <label class="form-check-label" for="requireUppercase">
+                                            Require Uppercase Letters
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="requireNumbers" checked>
+                                        <label class="form-check-label" for="requireNumbers">
+                                            Require Numbers
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="requireSpecialChars">
+                                        <label class="form-check-label" for="requireSpecialChars">
+                                            Require Special Characters
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="passwordExpiry" class="form-label">Password Expiry (days)</label>
+                                        <input type="number" class="form-control" id="passwordExpiry" value="90"
+                                            min="30" max="365">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session & Access -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-clock me-2"></i>Session & Access
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="sessionTimeout" class="form-label">Session Timeout (minutes)</label>
+                                        <input type="number" class="form-control" id="sessionTimeout" value="30"
+                                            min="15" max="480">
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="twoFactorAuth">
+                                        <label class="form-check-label" for="twoFactorAuth">
+                                            Enable Two-Factor Authentication
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="loginLogging" checked>
+                                        <label class="form-check-label" for="loginLogging">
+                                            Log Login Attempts
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="maxLoginAttempts" class="form-label">Max Login Attempts</label>
+                                        <input type="number" class="form-control" id="maxLoginAttempts" value="5"
+                                            min="3" max="10">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="lockoutDuration" class="form-label">Account Lockout
+                                            (minutes)</label>
+                                        <input type="number" class="form-control" id="lockoutDuration" value="15"
+                                            min="5" max="60">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup & Data -->
+                <div id="backup" class="settings-panel">
+                    <div class="row g-4">
+                        <!-- Backup Settings -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-cloud-upload-alt me-2"></i>Backup Settings
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="autoBackupEnabled" checked>
+                                        <label class="form-check-label" for="autoBackupEnabled">
+                                            Enable Automatic Backup
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="backupFrequency" class="form-label">Backup Frequency</label>
+                                        <select class="form-select" id="backupFrequency">
+                                            <option value="daily" selected>Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="backupTime" class="form-label">Backup Time</label>
+                                        <input type="time" class="form-control" id="backupTime" value="02:00">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="retentionPeriod" class="form-label">Retention Period (days)</label>
+                                        <input type="number" class="form-control" id="retentionPeriod" value="30"
+                                            min="7" max="365">
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary w-100 mb-2"
+                                        onclick="createBackup()">
+                                        <i class="fas fa-save"></i> Create Backup Now
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success w-100"
+                                        onclick="restoreBackup()">
+                                        <i class="fas fa-upload"></i> Restore Backup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Management -->
+                        <div class="col-lg-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-database me-2"></i>Data Management
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Warning:</strong> These actions cannot be undone. Please create a backup
+                                        before proceeding.
+                                    </div>
+
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-outline-info" onclick="exportData()">
+                                            <i class="fas fa-download"></i> Export All Data
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning" onclick="importData()">
+                                            <i class="fas fa-upload"></i> Import Data
+                                        </button>
+                                        <hr>
+                                        <button type="button" class="btn btn-outline-danger" onclick="clearOldData()">
+                                            <i class="fas fa-trash-alt"></i> Clear Old Data (90+ days)
+                                        </button>
+                                        <button type="button" class="btn btn-danger" onclick="resetAllData()">
+                                            <i class="fas fa-exclamation-triangle"></i> Reset All Data
+                                        </button>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <small class="text-muted">
+                                            <strong>Data Storage:</strong><br>
+                                            Inventory: <span id="inventorySize">0 KB</span><br>
+                                            Orders: <span id="ordersSize">0 KB</span><br>
+                                            Customers: <span id="customersSize">0 KB</span><br>
+                                            Total: <span id="totalSize">0 KB</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden File Input for Data Import -->
+    <input type="file" id="fileInput" accept=".json,.csv" style="display: none;">
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="/assets/sweetalert2/sweetalert2.min.js"></script>
+    <!-- Common JS -->
+    <script src="/js/common.js"></script>
+    <!-- Settings JS -->
+    <script src="/js/settings.js"></script>
+</body>
+
+</html>
