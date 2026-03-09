@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Supplier Response DTO
@@ -29,4 +30,8 @@ public class SupplierResponse {
     private LocalDateTime createdAt;
     private Integer totalPurchaseOrders;
     private BigDecimal totalPurchaseValue;
+
+    // Products supplied by this supplier
+    private List<SupplierProductResponse> suppliedProducts;
+    private Integer totalProducts;
 }

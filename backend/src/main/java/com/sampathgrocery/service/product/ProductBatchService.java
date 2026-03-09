@@ -239,8 +239,11 @@ public class ProductBatchService {
         response.setProductId(batch.getProduct().getProductId());
         response.setProductName(batch.getProduct().getProductName());
         response.setProductCode(batch.getProduct().getProductCode());
-        response.setSupplierId(batch.getSupplier().getSupplierId());
-        response.setSupplierName(batch.getSupplier().getSupplierName());
+
+        if (batch.getSupplier() != null) {
+            response.setSupplierId(batch.getSupplier().getSupplierId());
+            response.setSupplierName(batch.getSupplier().getSupplierName());
+        }
 
         if (batch.getGrn() != null) {
             response.setGrnNumber(batch.getGrn().getGrnNumber());

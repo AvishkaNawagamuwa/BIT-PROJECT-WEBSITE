@@ -22,11 +22,12 @@ public class GRNItemRequest {
 
     private String batchCode; // Optional - will auto-generate if not provided
 
-    private Integer orderedQuantity;
+    private Integer orderedQuantity; // Original PO ordered quantity
+    private Integer alreadyReceivedQuantity; // Cumulative received from previous GRNs (for display only)
 
     @NotNull(message = "Received quantity is required")
     @Min(value = 1, message = "Received quantity must be at least 1")
-    private Integer receivedQuantity;
+    private Integer receivedQuantity; // Current GRN receiving quantity (editable)
 
     @NotNull(message = "Purchase price is required")
     @Min(value = 0)

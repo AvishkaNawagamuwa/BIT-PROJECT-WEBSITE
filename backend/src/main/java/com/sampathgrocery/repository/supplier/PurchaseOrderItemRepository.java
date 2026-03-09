@@ -2,9 +2,13 @@ package com.sampathgrocery.repository.supplier;
 
 import com.sampathgrocery.entity.supplier.PurchaseOrderItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Purchase Order Item Repository
@@ -27,4 +31,17 @@ public interface PurchaseOrderItemRepository extends JpaRepository<PurchaseOrder
      * Count items in a purchase order
      */
     Long countByPurchaseOrderRequestId(Integer requestId);
+
+    /**
+     * Find last purchase price for a supplier-product combination
+     * Gets the most recent unit price from approved/ordered POs
+     */
+    @Query("SELECT poi.expectedUnitPrice FROM PurchaseOrderItem poi " +
+            "JOIN poi.purchaseOrder po " +
+            "WHERE po.supplier.supplierId = :supplierId " +
+            "AND poi.product.productId = :productId " +
+            "AND po.status IN ('APPROVED', 'ORDERED', 'RECEIVED') " +
+            "ORDER BY po.requestedDate DESC, poi.reorderItemId DESC")
+    Optional<BigDecimal> findLastPurchasePrice(@Param("supplierId") Integer supplierId,
+            @Param("productId") Integer productId);
 }

@@ -1,5 +1,6 @@
 package com.sampathgrocery.entity.product;
 
+import com.sampathgrocery.entity.supplier.SupplierProduct;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +11,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * නිෂ්පාදන - Master Product Catalog
@@ -42,23 +45,33 @@ public class Product {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brand_id")
+    private Brand brand;
+
+    // Old brand field - kept for backward compatibility during migration
     @Size(max = 100, message = "Brand cannot exceed 100 characters")
-    @Column(name = "brand", length = 100)
-    private String brand;
+    @Column(name = "brand_text", length = 100, insertable = false, updatable = false)
+    private String brandText;
 
     @Size(max = 100, message = "Barcode cannot exceed 100 characters")
     @Column(name = "barcode", unique = true, length = 100)
     private String barcode;
 
+    @NotNull(message = "Unit of measure is required")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unit_id", nullable = false)
+    private UnitOfMeasure unit;
+
+    // Old unit enum field - kept for backward compatibility during migration  
     @Enumerated(EnumType.STRING)
-    @Column(name = "unit_of_measure", length = 10)
-    private UnitOfMeasure unitOfMeasure = UnitOfMeasure.PCS;
+    @Column(name = "unit_of_measure_legacy", length = 10, insertable = false, updatable = false)
+    private UnitOfMeasureLegacy unitOfMeasureLegacy;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Size(max = 500, message = "Image URL cannot exceed 500 characters")
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Min(value = 0, message = "Reorder point cannot be negative")
@@ -71,6 +84,10 @@ public class Product {
 
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    // Many-to-Many relationship with Suppliers through SupplierProduct
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SupplierProduct> productSuppliers = new ArrayList<>();
 
     // Audit fields
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -92,9 +109,6 @@ public class Product {
         if (isActive == null) {
             isActive = true;
         }
-        if (unitOfMeasure == null) {
-            unitOfMeasure = UnitOfMeasure.PCS;
-        }
     }
 
     @PreUpdate
@@ -103,9 +117,9 @@ public class Product {
     }
 
     /**
-     * Unit of Measure Enum
+     * Legacy Unit of Measure Enum - for backward compatibility
      */
-    public enum UnitOfMeasure {
+    public enum UnitOfMeasureLegacy {
         KG, // Kilograms
         G, // Grams
         L, // Liters

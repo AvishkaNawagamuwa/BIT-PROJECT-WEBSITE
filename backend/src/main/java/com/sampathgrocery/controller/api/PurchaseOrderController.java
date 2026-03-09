@@ -86,6 +86,15 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(ApiResponse.success("Purchase order marked as ordered", order));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<PurchaseOrderResponse>> cancelPurchaseOrder(
+            @PathVariable Integer id,
+            @RequestBody Map<String, String> payload) {
+        String reason = payload.getOrDefault("reason", "Cancelled by user");
+        PurchaseOrderResponse order = purchaseOrderService.cancelPurchaseOrder(id, reason);
+        return ResponseEntity.ok(ApiResponse.success("Purchase order cancelled", order));
+    }
+
     @GetMapping("/count/active")
     public ResponseEntity<ApiResponse<Long>> getActivePurchaseOrderCount() {
         long count = purchaseOrderService.countActivePurchaseOrders();

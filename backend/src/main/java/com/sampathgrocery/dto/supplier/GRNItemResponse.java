@@ -19,8 +19,9 @@ public class GRNItemResponse {
     private String productName;
     private String productCode;
     private String batchCode;
-    private Integer orderedQuantity;
-    private Integer receivedQuantity;
+    private Integer orderedQuantity; // Original PO ordered quantity
+    private Integer alreadyReceivedQuantity; // Cumulative received from previous GRNs
+    private Integer receivedQuantity; // Current GRN receiving quantity (editable)
     private Integer variance; // receivedQty - orderedQty
     private BigDecimal finalPurchasePrice;
     private BigDecimal sellingPrice;

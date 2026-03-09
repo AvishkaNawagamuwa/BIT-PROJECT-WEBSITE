@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Supplier Request DTO
@@ -51,4 +52,7 @@ public class SupplierRequest {
     private BigDecimal creditLimit;
 
     private Boolean isActive = true;
+
+    // Product IDs that this supplier supplies
+    private List<Integer> productIds;
 }

@@ -19,9 +19,12 @@ public class ProductResponse {
     private String productName;
     private Integer categoryId;
     private String categoryName;
-    private String brand;
+    private Integer brandId;
+    private String brandName;
     private String barcode;
-    private Product.UnitOfMeasure unitOfMeasure;
+    private Integer unitId;
+    private String unitCode;
+    private String unitName;
     private String description;
     private String imageUrl;
     private Integer reorderPoint;

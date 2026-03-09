@@ -29,7 +29,7 @@
 
     <!-- Custom CSS - අපේ විශේෂ styles -->
     <link rel="stylesheet" href="/css/common.css">
-    
+
     <style>
         /* Toast notification animations */
         @keyframes slideIn {
@@ -37,17 +37,19 @@
                 transform: translateX(400px);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
             }
         }
-        
+
         @keyframes slideOut {
             from {
                 transform: translateX(0);
                 opacity: 1;
             }
+
             to {
                 transform: translateX(400px);
                 opacity: 0;
@@ -304,10 +306,15 @@
                                                         <label for="filterPOStatus" class="form-label">Status</label>
                                                         <select class="form-select" id="filterPOStatus">
                                                             <option value="">All Status</option>
-                                                            <option value="Pending">Pending</option>
-                                                            <option value="Approved">Approved</option>
-                                                            <option value="Received">Received</option>
-                                                            <option value="Cancelled">Cancelled</option>
+                                                            <option value="DRAFT">Draft</option>
+                                                            <option value="PENDING">Pending</option>
+                                                            <option value="APPROVED">Approved</option>
+                                                            <option value="ORDERED">Ordered</option>
+                                                            <option value="PARTIALLY_RECEIVED">Partially Received
+                                                            </option>
+                                                            <option value="RECEIVED">Received</option>
+                                                            <option value="REJECTED">Rejected</option>
+                                                            <option value="CANCELLED">Cancelled</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-md-2">
@@ -432,7 +439,7 @@
                                                     </div>
                                                     <div class="col-md-2 d-flex align-items-end">
                                                         <button class="btn btn-outline-secondary w-100"
-                                                            onclick="clearGRNFilters()">
+                                                            onclick="GRNDashboard.clearFilters()">
                                                             <i class="fas fa-times"></i> Clear
                                                         </button>
                                                     </div>
@@ -449,7 +456,7 @@
                                             <div class="icon text-success">
                                                 <i class="fas fa-clipboard-check"></i>
                                             </div>
-                                            <div class="value" id="totalGRNs">0</div>
+                                            <div class="value" id="totalGRNsValue">0</div>
                                             <div class="label">Total GRNs</div>
                                         </div>
                                     </div>
@@ -458,7 +465,7 @@
                                             <div class="icon text-info">
                                                 <i class="fas fa-calendar-day"></i>
                                             </div>
-                                            <div class="value" id="grnThisMonth">0</div>
+                                            <div class="value" id="thisMonthGRNsValue">0</div>
                                             <div class="label">This Month</div>
                                         </div>
                                     </div>
@@ -467,7 +474,7 @@
                                             <div class="icon text-warning">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                             </div>
-                                            <div class="value" id="grnWithIssues">0</div>
+                                            <div class="value" id="grnWithIssuesValue">0</div>
                                             <div class="label">With Issues</div>
                                         </div>
                                     </div>
@@ -476,8 +483,41 @@
                                             <div class="icon text-primary">
                                                 <i class="fas fa-dollar-sign"></i>
                                             </div>
-                                            <div class="value">Rs. <span id="totalGRNValue">0</span></div>
+                                            <div class="value" id="totalGRNValueValue">Rs. 0</div>
                                             <div class="label">Total Value</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Waiting to Receive Section (ORDERED/PARTIALLY_RECEIVED POs) -->
+                                <div class="card mb-4 border-warning">
+                                    <div class="card-header bg-warning bg-opacity-10">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-hourglass-half me-2"></i>
+                                            Waiting to Receive (Purchase Orders)
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>PO No</th>
+                                                        <th>Supplier</th>
+                                                        <th>Expected Date</th>
+                                                        <th>Status & Progress</th>
+                                                        <th>Total</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="waitingPOsTableBody">
+                                                    <tr>
+                                                        <td colspan="6" class="text-center py-3">
+                                                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
@@ -626,6 +666,41 @@
                                 <label for="supplierCreditLimit" class="form-label">Credit Limit (Rs.)</label>
                                 <input type="number" class="form-control input-element" id="supplierCreditLimit"
                                     value="0" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <!-- Products Supplied -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary border-bottom pb-2">
+                                    <i class="fas fa-boxes me-2"></i>Products Supplied
+                                </h5>
+                                <p class="text-muted small mb-2">Select the products that this supplier can provide</p>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                                        <div class="row mb-2">
+                                            <div class="col-12">
+                                                <input type="text" class="form-control" id="searchProducts"
+                                                    placeholder="🔍 Search products...">
+                                            </div>
+                                        </div>
+                                        <div id="productCheckboxList" class="mt-3">
+                                            <!-- Product checkboxes will be dynamically loaded here -->
+                                            <div class="text-center text-muted py-3">
+                                                <i class="fas fa-spinner fa-spin me-2"></i>Loading products...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <span id="selectedProductCount">0</span> product(s) selected
+                                </small>
                             </div>
                         </div>
 
@@ -812,177 +887,6 @@
                     <button type="button" class="btn btn-success" id="btnReceivePO" onclick="receivePurchaseOrder()">
                         <i class="fas fa-check"></i> Mark as Received
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- GRN (Goods Received Note) Modal -->
-    <div class="modal fade" id="modalGRN" tabindex="-1" aria-labelledby="modalGRNLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="modalGRNLabel">
-                        <i class="fas fa-clipboard-check me-2"></i>Goods Received Note (GRN)
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="grnForm" onsubmit="return false;">
-                        <!-- GRN Header -->
-                        <div class="row mb-4">
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">GRN Number</label>
-                                <input type="text" class="form-control" id="grnNumber" readonly>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">PO Number</label>
-                                <input type="text" class="form-control" id="grnPONumber" readonly>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">Received Date *</label>
-                                <input type="date" class="form-control" id="grnReceivedDate" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">Received By *</label>
-                                <input type="text" class="form-control" id="grnReceivedBy" required>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Supplier</label>
-                                <input type="text" class="form-control" id="grnSupplier" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Invoice Number *</label>
-                                <input type="text" class="form-control" id="grnInvoiceNumber" required>
-                            </div>
-                        </div>
-
-                        <!-- Received Items Table -->
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <h6 class="text-success border-bottom pb-2">
-                                    <i class="fas fa-boxes me-2"></i>Received Items
-                                </h6>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive mb-4">
-                            <table class="table table-bordered" id="grnItemsTable">
-                                <thead class="table-success">
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Product</th>
-                                        <th>Batch No *</th>
-                                        <th>MFG Date</th>
-                                        <th>EXP Date *</th>
-                                        <th>Ordered Qty</th>
-                                        <th>Received Qty *</th>
-                                        <th>Damaged Qty</th>
-                                        <th>Unit Cost</th>
-                                        <th>Line Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="grnItemsTableBody">
-                                    <!-- GRN items will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- GRN Summary Section -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <div class="card bg-light">
-                                    <div class="card-body">
-                                        <h6 class="text-success mb-3">
-                                            <i class="fas fa-calculator me-2"></i>Summary
-                                        </h6>
-                                        <div class="row">
-                                            <div class="col-md-3">
-                                                <strong>Total Ordered Qty:</strong>
-                                                <div class="h5 text-primary" id="grnTotalOrdered">0</div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <strong>Total Received Qty:</strong>
-                                                <div class="h5 text-success" id="grnTotalReceived">0</div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <strong>Total Damaged Qty:</strong>
-                                                <div class="h5 text-danger" id="grnTotalDamaged">0</div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <strong>Total GRN Value:</strong>
-                                                <div class="h5 text-info">Rs. <span id="grnTotalValue">0.00</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Quality Check & Notes -->
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Quality Check Status *</label>
-                                <select class="form-select" id="grnQualityStatus" required>
-                                    <option value="">Select Status</option>
-                                    <option value="Approved">✅ Approved</option>
-                                    <option value="Approved with Minor Issues">⚠️ Approved with Minor Issues</option>
-                                    <option value="Rejected">❌ Rejected</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Storage Location *</label>
-                                <select class="form-select" id="grnStorageLocation" required>
-                                    <option value="">Select Location</option>
-                                    <option value="Warehouse A">Warehouse A</option>
-                                    <option value="Warehouse B">Warehouse B</option>
-                                    <option value="Cold Storage">Cold Storage</option>
-                                    <option value="Main Store">Main Store</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold">Remarks</label>
-                                <textarea class="form-control" id="grnNotes" rows="3"
-                                    placeholder="Document any issues: Short delivery, Damaged items, Price mismatch, Quality concerns..."></textarea>
-                            </div>
-                        </div>
-
-                        <!-- GRN Summary -->
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="alert alert-info">
-                                    <strong>Note:</strong> Upon submission, batches will be automatically created for
-                                    each received item in the inventory.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Form Actions -->
-                        <div class="row">
-                            <div class="col-4">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                    <i class="fas fa-times"></i> Cancel
-                                </button>
-                            </div>
-                            <div class="col-8 text-end">
-                                <button type="button" class="btn btn-outline-primary me-2" onclick="saveGRNDraft()">
-                                    <i class="fas fa-save"></i> Save GRN
-                                </button>
-                                <button type="button" class="btn btn-success" onclick="saveAndUpdateInventory()">
-                                    <i class="fas fa-check-circle"></i> Save & Update Inventory
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary ms-2" onclick="printGRN()">
-                                    <i class="fas fa-print"></i> Print GRN
-                                </button>
-                            </div>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
@@ -1251,12 +1155,151 @@
         </div>
     </div>
 
+    <!-- ============================================= -->
+    <!-- GRN Modal - Receive Goods -->
+    <!-- ============================================= -->
+    <div class="modal fade" id="grnModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Receive Goods - GRN Entry
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- GRN Header Information -->
+                    <div class="row g-3 mb-4 border-bottom pb-3">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">GRN Number</label>
+                            <input type="text" class="form-control form-control-sm" id="grnNumber" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">PO Number</label>
+                            <input type="text" class="form-control form-control-sm" id="grnPONumber" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Supplier</label>
+                            <input type="text" class="form-control form-control-sm" id="grnSupplier" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Expected Date</label>
+                            <input type="date" class="form-control form-control-sm" id="grnExpectedDate" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Received Date <span
+                                    class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="grnReceivedDate" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Invoice Number</label>
+                            <input type="text" class="form-control form-control-sm" id="grnInvoiceNumber"
+                                placeholder="Optional">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Notes</label>
+                            <textarea class="form-control form-control-sm" id="grnNotes" rows="1"
+                                placeholder="Optional notes"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- GRN Items Grid -->
+                    <div class="mb-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-list me-2"></i>
+                            Items to Receive
+                            <small class="text-muted">(Edit receive quantities, prices, and expiry dates)</small>
+                        </h6>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered table-hover">
+                                <thead class="table-success sticky-top">
+                                    <tr>
+                                        <th style="width: 20%;">Product</th>
+                                        <th style="width: 8%;">Ordered</th>
+                                        <th style="width: 8%;">Already Received</th>
+                                        <th style="width: 8%;">Remaining</th>
+                                        <th style="width: 10%;">Receive Qty <span class="text-danger">*</span></th>
+                                        <th style="width: 10%;">Purchase Price</th>
+                                        <th style="width: 10%;">Selling Price</th>
+                                        <th style="width: 12%;">Expiry Date <span class="text-danger">*</span></th>
+                                        <th style="width: 10%;">Batch Code</th>
+                                        <th style="width: 10%;">Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grnItemsTableBody">
+                                    <!-- Populated by JavaScript -->
+                                    <tr>
+                                        <td colspan="10" class="text-center py-3">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading items...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Totals Summary -->
+                    <div class="row">
+                        <div class="col-md-8"></div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-2">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <strong>Total Items:</strong>
+                                        <span id="grnTotalItems">0</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                                        <strong class="text-success">Grand Total:</strong>
+                                        <strong class="text-success fs-5" id="grnGrandTotal">Rs. 0.00</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg" id="receiveGoodsBtn"
+                        onclick="GRNDashboard.receiveGoods()">
+                        <i class="fas fa-check-circle me-1"></i>Receive Goods
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Common JS -->
     <script src="/js/common.js"></script>
     <!-- Suppliers JS -->
     <script src="/js/suppliers.js"></script>
+    <!-- GRN Dashboard JS -->
+    <script src="/js/grn-dashboard.js"></script>
+    <script>
+        // Initialize GRN Dashboard
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('Page loaded, setting up GRN Dashboard');
+
+            const grnTab = document.getElementById('grn-tab');
+            if (grnTab) {
+                // Initialize when tab is shown
+                grnTab.addEventListener('shown.bs.tab', function () {
+                    console.log('GRN tab shown, initializing dashboard');
+                    GRNDashboard.init();
+                });
+
+                // Check if GRN tab is already active on page load
+                if (grnTab.classList.contains('active')) {
+                    console.log('GRN tab already active, initializing dashboard');
+                    GRNDashboard.init();
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>

@@ -25,7 +25,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
     <!-- SweetAlert2 - සුන්දර alerts සඳහා -->
-    <link rel="stylesheet" href="/assets/sweetalert2/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
     <!-- Custom CSS - අපේ විශේෂ styles -->
     <link rel="stylesheet" href="/css/common.css">
@@ -114,6 +114,14 @@
                                     <button class="btn btn-light me-2" data-bs-toggle="modal"
                                         data-bs-target="#modalCategory">
                                         <i class="fas fa-tag"></i> Manage Categories
+                                    </button>
+                                    <button class="btn btn-light me-2" data-bs-toggle="modal"
+                                        data-bs-target="#modalBrand">
+                                        <i class="fas fa-copyright"></i> Manage Brands
+                                    </button>
+                                    <button class="btn btn-light me-2" data-bs-toggle="modal"
+                                        data-bs-target="#modalUnit">
+                                        <i class="fas fa-ruler"></i> Manage Units
                                     </button>
                                     <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#modalProduct">
                                         <i class="fas fa-plus"></i> Add Product
@@ -551,6 +559,122 @@
     </div>
 
     <!-- ============================================
+         MODAL: MANAGE BRANDS - brand add/edit කරන modal
+         ============================================ -->
+    <div class="modal fade" id="modalBrand" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-copyright"></i> Manage Brands
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add New Brand Form -->
+                    <div class="mb-4">
+                        <h6>Add New Brand</h6>
+                        <form id="formAddBrand" onsubmit="addBrand(event)">
+                            <div class="row g-3">
+                                <!-- Brand Name -->
+                                <div class="col-md-12">
+                                    <label class="form-label">Brand Name *</label>
+                                    <input type="text" class="form-control" id="newBrandName"
+                                        placeholder="e.g., Anchor, Maliban, Nestlé" required>
+                                </div>
+
+                                <!-- Brand Description -->
+                                <div class="col-md-12">
+                                    <label class="form-label">Description (Optional)</label>
+                                    <textarea class="form-control" id="newBrandDescription" rows="2"
+                                        placeholder="Brief description of this brand..."></textarea>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-plus"></i> Add Brand
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Existing Brands List -->
+                    <div>
+                        <h6>Existing Brands</h6>
+                        <div class="list-group" id="brandsList">
+                            <!-- Brands list load වෙනවා JavaScript එකෙන් -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         MODAL: MANAGE UNITS - unit add/edit කරන modal
+         ============================================ -->
+    <div class="modal fade" id="modalUnit" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-ruler"></i> Manage Units of Measure
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add New Unit Form -->
+                    <div class="mb-4">
+                        <h6>Add New Unit</h6>
+                        <form id="formAddUnit" onsubmit="addUnit(event)">
+                            <div class="row g-3">
+                                <!-- Unit Name -->
+                                <div class="col-md-7">
+                                    <label class="form-label">Unit Name *</label>
+                                    <input type="text" class="form-control" id="newUnitName"
+                                        placeholder="e.g., Kilogram, Bottle" required>
+                                </div>
+
+                                <!-- Unit Code -->
+                                <div class="col-md-5">
+                                    <label class="form-label">Unit Code *</label>
+                                    <input type="text" class="form-control" id="newUnitCode"
+                                        placeholder="e.g., KG, BTL" required maxlength="10"
+                                        style="text-transform: uppercase;">
+                                </div>
+
+                                <!-- Unit Description -->
+                                <div class="col-md-12">
+                                    <label class="form-label">Description (Optional)</label>
+                                    <textarea class="form-control" id="newUnitDescription" rows="2"
+                                        placeholder="Brief description of this unit..."></textarea>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-plus"></i> Add Unit
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Existing Units List -->
+                    <div>
+                        <h6>Existing Units</h6>
+                        <div class="list-group" id="unitsList">
+                            <!-- Units list load වෙනවා JavaScript එකෙන් -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
          MODAL 2: ADD/EDIT PRODUCT - product add/edit කරන modal
          ============================================ -->
     <div class="modal fade" id="modalProduct" tabindex="-1">
@@ -586,21 +710,18 @@
                             <!-- Brand -->
                             <div class="col-md-4">
                                 <label class="form-label">Brand</label>
-                                <input type="text" class="form-control" id="productBrand"
-                                    placeholder="e.g., Anchor, Nestlé, Maliban">
+                                <select class="form-select" id="productBrand">
+                                    <option value="">Select Brand (Optional)</option>
+                                    <!-- Brands load වෙනවා JavaScript එකෙන් -->
+                                </select>
                             </div>
 
                             <!-- Unit of Measure -->
                             <div class="col-md-4">
                                 <label class="form-label">Unit of Measure *</label>
                                 <select class="form-select" id="productUnit" required>
-                                    <option value="PCS">Pieces (PCS)</option>
-                                    <option value="KG">Kilogram (KG)</option>
-                                    <option value="G">Gram (G)</option>
-                                    <option value="L">Liter (L)</option>
-                                    <option value="ML">Milliliter (ML)</option>
-                                    <option value="PACK">Pack</option>
-                                    <option value="BOX">Box</option>
+                                    <option value="">Select Unit</option>
+                                    <!-- Units load වෙනවා JavaScript එකෙන් -->
                                 </select>
                             </div>
 
@@ -924,7 +1045,7 @@
     <!-- Bootstrap JS -->
     <script src="/assets/bootstrap-5.3.7/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 -->
-    <script src="/assets/sweetalert2/sweetalert2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Common Functions -->
     <script src="/js/common.js"></script>
     <!-- Inventory Specific JS -->

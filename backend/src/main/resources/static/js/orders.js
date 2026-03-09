@@ -101,7 +101,7 @@ async function loadCustomers() {
 // Load product batches for dropdown
 async function loadProductBatches() {
     try {
-        const response = await fetch(`${BATCHES_API_URL}?status=ACTIVE`);
+        const response = await fetch(BATCHES_API_URL);
         if (!response.ok) throw new Error('Failed to load product batches');
 
         const apiResponse = await response.json();

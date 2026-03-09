@@ -75,7 +75,7 @@ public class GRN {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private GRNStatus status = GRNStatus.DRAFT;
+    private GRNStatus status = GRNStatus.RECEIVED;
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
@@ -105,7 +105,7 @@ public class GRN {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (status == null) {
-            status = GRNStatus.DRAFT;
+            status = GRNStatus.RECEIVED;
         }
         if (qualityStatus == null) {
             qualityStatus = QualityStatus.OK;
@@ -129,9 +129,8 @@ public class GRN {
      * GRN Status Enum
      */
     public enum GRNStatus {
-        DRAFT, // Being created/edited
-        APPROVED, // Approved - inventory updated
-        CANCELLED // Cancelled (if needed)
+        RECEIVED, // Goods fully received - PO completed
+        PARTIALLY_RECEIVED // Partial delivery - PO still has remaining items
     }
 
     /**

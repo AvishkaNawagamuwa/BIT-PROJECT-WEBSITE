@@ -23,14 +23,16 @@ public class PurchaseOrderItemResponse {
     private BigDecimal expectedUnitPrice;
     private BigDecimal lineTotal;
     private String notes;
-    
+
     // Helper method to calculate remaining quantity
     public Integer getRemainingQuantity() {
-        if (quantity == null) return 0;
-        if (receivedQuantity == null) return quantity;
+        if (quantity == null)
+            return 0;
+        if (receivedQuantity == null)
+            return quantity;
         return quantity - receivedQuantity;
     }
-    
+
     // Helper method to get receiving status
     public String getReceivingStatus() {
         if (receivedQuantity == null || receivedQuantity == 0) {

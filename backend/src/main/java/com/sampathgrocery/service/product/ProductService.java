@@ -2,13 +2,10 @@ package com.sampathgrocery.service.product;
 
 import com.sampathgrocery.dto.product.ProductRequest;
 import com.sampathgrocery.dto.product.ProductResponse;
-import com.sampathgrocery.entity.product.Category;
-import com.sampathgrocery.entity.product.Product;
+import com.sampathgrocery.entity.product.*;
 import com.sampathgrocery.exception.BadRequestException;
 import com.sampathgrocery.exception.ResourceNotFoundException;
-import com.sampathgrocery.repository.product.CategoryRepository;
-import com.sampathgrocery.repository.product.ProductBatchRepository;
-import com.sampathgrocery.repository.product.ProductRepository;
+import com.sampathgrocery.repository.product.*;
 import com.sampathgrocery.util.CodeGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +21,8 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
+    private final UnitOfMeasureRepository unitOfMeasureRepository;
     private final ProductBatchRepository productBatchRepository;
 
     public List<ProductResponse> getAllProducts(Integer categoryId, Boolean active) {
@@ -117,9 +116,20 @@ public class ProductService {
         product.setProductCode(productCode);
         product.setProductName(request.getProductName());
         product.setCategory(category);
-        product.setBrand(request.getBrand());
+        
+        // Set brand if provided
+        if (request.getBrandId() != null) {
+            Brand brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Brand", "id", request.getBrandId()));
+            product.setBrand(brand);
+        }
+        
+        // Set unit (required)
+        UnitOfMeasure unit = unitOfMeasureRepository.findById(request.getUnitId())
+                .orElseThrow(() -> new ResourceNotFoundException("Unit", "id", request.getUnitId()));
+        product.setUnit(unit);
+        
         product.setBarcode(barcode);
-        product.setUnitOfMeasure(request.getUnitOfMeasure());
         product.setDescription(request.getDescription());
         product.setImageUrl(request.getImageUrl());
         product.setReorderPoint(request.getReorderPoint());
@@ -156,9 +166,22 @@ public class ProductService {
         product.setProductCode(request.getProductCode());
         product.setProductName(request.getProductName());
         product.setCategory(category);
-        product.setBrand(request.getBrand());
+        
+        // Update brand if provided
+        if (request.getBrandId() != null) {
+            Brand brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Brand", "id", request.getBrandId()));
+            product.setBrand(brand);
+        } else {
+            product.setBrand(null);
+        }
+        
+        // Update unit (required)
+        UnitOfMeasure unit = unitOfMeasureRepository.findById(request.getUnitId())
+                .orElseThrow(() -> new ResourceNotFoundException("Unit", "id", request.getUnitId()));
+        product.setUnit(unit);
+        
         product.setBarcode(request.getBarcode());
-        product.setUnitOfMeasure(request.getUnitOfMeasure());
         product.setDescription(request.getDescription());
         product.setImageUrl(request.getImageUrl());
         product.setReorderPoint(request.getReorderPoint());
@@ -208,11 +231,27 @@ public class ProductService {
         response.setProductId(product.getProductId());
         response.setProductCode(product.getProductCode());
         response.setProductName(product.getProductName());
-        response.setCategoryId(product.getCategory().getCategoryId());
-        response.setCategoryName(product.getCategory().getCategoryName());
-        response.setBrand(product.getBrand());
+        
+        // Set category info (null-safe)
+        if (product.getCategory() != null) {
+            response.setCategoryId(product.getCategory().getCategoryId());
+            response.setCategoryName(product.getCategory().getCategoryName());
+        }
+        
+        // Set brand info
+        if (product.getBrand() != null) {
+            response.setBrandId(product.getBrand().getBrandId());
+            response.setBrandName(product.getBrand().getBrandName());
+        }
+        
+        // Set unit info
+        if (product.getUnit() != null) {
+            response.setUnitId(product.getUnit().getUnitId());
+            response.setUnitCode(product.getUnit().getUnitCode());
+            response.setUnitName(product.getUnit().getUnitName());
+        }
+        
         response.setBarcode(product.getBarcode());
-        response.setUnitOfMeasure(product.getUnitOfMeasure());
         response.setDescription(product.getDescription());
         response.setImageUrl(product.getImageUrl());
         response.setReorderPoint(product.getReorderPoint());

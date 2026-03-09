@@ -29,7 +29,7 @@ public class WaitingPOResponse {
     private Integer totalReceived;
     private Integer totalRemaining;
     private String receivingStatus; // WAITING or PARTIAL
-    
+
     // Helper method to determine receiving status
     public String getReceivingStatus() {
         if (totalReceived == null || totalReceived == 0) {
@@ -40,7 +40,7 @@ public class WaitingPOResponse {
             return "RECEIVED";
         }
     }
-    
+
     // Helper method to calculate completion percentage
     public Integer getCompletionPercentage() {
         if (totalOrdered == null || totalOrdered == 0) {

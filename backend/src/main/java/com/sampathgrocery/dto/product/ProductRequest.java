@@ -28,18 +28,17 @@ public class ProductRequest {
     @NotNull(message = "Category is required")
     private Integer categoryId;
 
-    @Size(max = 100)
-    private String brand;
+    private Integer brandId; // Optional - can be null
 
     @Size(max = 100)
     private String barcode;
 
-    private Product.UnitOfMeasure unitOfMeasure;
+    @NotNull(message = "Unit of measure is required")
+    private Integer unitId;
 
     @Size(max = 1000)
     private String description;
 
-    @Size(max = 500)
     private String imageUrl;
 
     @Min(value = 0)

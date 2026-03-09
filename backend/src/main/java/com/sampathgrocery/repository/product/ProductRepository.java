@@ -47,6 +47,16 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     boolean existsByBarcode(String barcode);
 
     /**
+     * Count products by brand
+     */
+    Long countByBrandBrandId(Integer brandId);
+
+    /**
+     * Count products by unit
+     */
+    Long countByUnitUnitId(Integer unitId);
+
+    /**
      * Search products by name, code, brand, or barcode
      */
     @Query("SELECT p FROM Product p WHERE " +

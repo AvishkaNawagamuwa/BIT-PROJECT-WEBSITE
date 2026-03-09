@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -72,7 +74,7 @@ public class GRNService {
         grn.setReceivedDate(request.getReceivedDate());
         grn.setInvoiceNumber(request.getInvoiceNumber());
         grn.setInvoiceDate(request.getInvoiceDate());
-        grn.setStatus(GRN.GRNStatus.DRAFT);
+        grn.setStatus(GRN.GRNStatus.RECEIVED);
         grn.setNotes(request.getNotes());
         grn.setReceivedBy(createdBy);
         grn.setCreatedBy(createdBy);
@@ -89,6 +91,17 @@ public class GRNService {
 
         grn = grnRepository.save(grn);
 
+        // Get initial batch code counter for sequential generation within transaction
+        String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
+        int batchCounter = 1;
+        if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
+            try {
+                batchCounter = Integer.parseInt(lastBatchCode.substring(6)) + 1;
+            } catch (Exception e) {
+                batchCounter = 1;
+            }
+        }
+
         // Create GRN items and calculate totals
         BigDecimal subtotal = BigDecimal.ZERO;
         for (GRNItemRequest itemReq : request.getItems()) {
@@ -98,7 +111,12 @@ public class GRNService {
             GRNItem item = new GRNItem();
             item.setGrn(grn);
             item.setProduct(product);
-            item.setBatchCode(itemReq.getBatchCode() != null ? itemReq.getBatchCode() : generateBatchCode());
+            // Generate unique batch code sequentially to avoid duplicates in same transaction
+            if (itemReq.getBatchCode() != null && !itemReq.getBatchCode().trim().isEmpty()) {
+                item.setBatchCode(itemReq.getBatchCode());
+            } else {
+                item.setBatchCode(String.format("BATCH-%05d", batchCounter++));
+            }
             item.setOrderedQuantity(itemReq.getOrderedQuantity());
             item.setReceivedQuantity(itemReq.getReceivedQuantity());
             item.setFinalPurchasePrice(itemReq.getFinalPurchasePrice());
@@ -138,9 +156,8 @@ public class GRNService {
     public GRNResponse approveGRN(Integer id, Integer approvedBy) {
         GRN grn = findById(id);
 
-        if (grn.getStatus() != GRN.GRNStatus.DRAFT) {
-            throw new BusinessRuleViolationException("Only DRAFT GRNs can be approved");
-        }
+        // Skip validation since we now receive directly
+        // grn already has RECEIVED status
 
         // Get all GRN items
         List<GRNItem> items = grnItemRepository.findByGrnGrnId(grn.getGrnId());
@@ -182,7 +199,8 @@ public class GRNService {
                             "Batch code is required for " + grnItem.getProduct().getProductName());
                 }
 
-                if (grnItem.getFinalPurchasePrice() == null || grnItem.getFinalPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) {
+                if (grnItem.getFinalPurchasePrice() == null
+                        || grnItem.getFinalPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) {
                     throw new BusinessRuleViolationException(
                             "Purchase price is required for " + grnItem.getProduct().getProductName());
                 }
@@ -203,8 +221,8 @@ public class GRNService {
             batch.setGrnItem(grnItem);
             batch.setSupplier(grn.getSupplier());
             batch.setPurchasePrice(grnItem.getFinalPurchasePrice());
-            batch.setSellingPrice(grnItem.getSellingPrice() != null ?
-                    grnItem.getSellingPrice() : grnItem.getFinalPurchasePrice().multiply(BigDecimal.valueOf(1.3)));
+            batch.setSellingPrice(grnItem.getSellingPrice() != null ? grnItem.getSellingPrice()
+                    : grnItem.getFinalPurchasePrice().multiply(BigDecimal.valueOf(1.3)));
             batch.setMrp(batch.getSellingPrice());
             batch.setReceivedQuantity(grnItem.getReceivedQuantity());
             batch.setStockQuantity(grnItem.getReceivedQuantity());
@@ -237,7 +255,7 @@ public class GRNService {
         }
 
         // Update GRN status
-        grn.setStatus(GRN.GRNStatus.APPROVED);
+        grn.setStatus(GRN.GRNStatus.RECEIVED);
         grn.setVerifiedBy(approvedBy);
         grn.setUpdatedBy(approvedBy);
         grn = grnRepository.save(grn);
@@ -283,16 +301,15 @@ public class GRNService {
             totalReceived += (poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0);
         }
 
-        // Update PO status based on total received
+        // Update PO status based on total received (ERP Standard Logic)
         if (totalReceived == 0) {
-            // No items received yet - keep as APPROVED or ORDERED
-            if (po.getStatus() != PurchaseOrder.POStatus.APPROVED &&
-                    po.getStatus() != PurchaseOrder.POStatus.ORDERED) {
-                po.setStatus(PurchaseOrder.POStatus.APPROVED);
-            }
+            // No items received yet - keep as ORDERED
+            po.setStatus(PurchaseOrder.POStatus.ORDERED);
         } else if (totalReceived < totalOrdered) {
+            // Partial delivery - some items received
             po.setStatus(PurchaseOrder.POStatus.PARTIALLY_RECEIVED);
         } else {
+            // Full delivery - all items received
             po.setStatus(PurchaseOrder.POStatus.RECEIVED);
         }
 
@@ -302,11 +319,8 @@ public class GRNService {
     public GRNResponse receiveGRN(Integer id) {
         GRN grn = findById(id);
 
-        if (grn.getStatus() != GRN.GRNStatus.DRAFT) {
-            throw new BusinessRuleViolationException("Only DRAFT GRNs can be marked as received");
-        }
-
-        grn.setStatus(GRN.GRNStatus.APPROVED);
+        // Skip validation - already received
+        grn.setStatus(GRN.GRNStatus.RECEIVED);
         grn = grnRepository.save(grn);
 
         return toResponse(grn);
@@ -315,11 +329,8 @@ public class GRNService {
     public GRNResponse rejectGRN(Integer id, String reason) {
         GRN grn = findById(id);
 
-        if (grn.getStatus() == GRN.GRNStatus.APPROVED) {
-            throw new BusinessRuleViolationException("Approved GRNs cannot be rejected");
-        }
-
-        grn.setStatus(GRN.GRNStatus.CANCELLED);
+        // No reject status anymore - just use RECEIVED
+        grn.setStatus(GRN.GRNStatus.RECEIVED);
         grn.setNotes((grn.getNotes() != null ? grn.getNotes() + "\n" : "") + "REJECTED: " + reason);
         grn = grnRepository.save(grn);
 
@@ -328,14 +339,13 @@ public class GRNService {
 
     /**
      * Update draft GRN
-     * Allows modifying quantities, prices, expiry dates, batch codes before approval
+     * Allows modifying quantities, prices, expiry dates, batch codes before
+     * approval
      */
     public GRNResponse updateDraftGRN(Integer id, GRNRequest request, Integer updatedBy) {
         GRN grn = findById(id);
 
-        if (grn.getStatus() != GRN.GRNStatus.DRAFT) {
-            throw new BusinessRuleViolationException("Only DRAFT GRNs can be updated");
-        }
+        // Skip validation - allow updates
 
         // Update GRN header
         grn.setReceivedDate(request.getReceivedDate());
@@ -404,7 +414,7 @@ public class GRNService {
             // Calculate receiving statistics
             List<PurchaseOrderItem> items = purchaseOrderItemRepository
                     .findByPurchaseOrderRequestId(po.getRequestId());
-            
+
             int totalOrdered = items.stream().mapToInt(PurchaseOrderItem::getQuantity).sum();
             int totalReceived = items.stream()
                     .mapToInt(item -> item.getReceivedQuantity() != null ? item.getReceivedQuantity() : 0)
@@ -426,8 +436,8 @@ public class GRNService {
     public GRNDashboardStats getDashboardStats() {
         GRNDashboardStats stats = new GRNDashboardStats();
 
-        // Total approved GRNs
-        stats.setTotalGRNs(grnRepository.countByStatus(GRN.GRNStatus.APPROVED));
+        // Total received GRNs
+        stats.setTotalGRNs(grnRepository.countByStatus(GRN.GRNStatus.RECEIVED));
 
         // GRNs received this month
         LocalDate firstDayOfMonth = LocalDate.now().withDayOfMonth(1);
@@ -437,7 +447,7 @@ public class GRNService {
         // GRNs with quality issues
         stats.setGrnWithIssues(grnRepository.countGRNsWithIssues());
 
-        // Total value of approved GRNs
+        // Total value of received GRNs
         stats.setTotalValue(grnRepository.getTotalGRNValue());
 
         // Waiting and partial POs
@@ -455,12 +465,12 @@ public class GRNService {
         PurchaseOrder po = purchaseOrderRepository.findById(poId)
                 .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "id", poId));
 
-        // Allow receiving from APPROVED, ORDERED, or PARTIALLY_RECEIVED POs
-        if (po.getStatus() != PurchaseOrder.POStatus.APPROVED &&
-                po.getStatus() != PurchaseOrder.POStatus.ORDERED &&
+        // Allow receiving ONLY from ORDERED or PARTIALLY_RECEIVED POs
+        if (po.getStatus() != PurchaseOrder.POStatus.ORDERED &&
                 po.getStatus() != PurchaseOrder.POStatus.PARTIALLY_RECEIVED) {
             throw new BusinessRuleViolationException(
-                    "Only APPROVED, ORDERED, or PARTIALLY_RECEIVED purchase orders can be received");
+                    "Only ORDERED or PARTIALLY_RECEIVED purchase orders can be received. " +
+                            "Current status: " + po.getStatus() + ". Please mark as 'Ordered' first.");
         }
 
         GRNRequest request = new GRNRequest();
@@ -471,6 +481,17 @@ public class GRNService {
         // Get PO items and calculate remaining quantities
         List<PurchaseOrderItem> poItems = purchaseOrderItemRepository
                 .findByPurchaseOrderRequestId(po.getRequestId());
+
+        // Get initial batch code counter for sequential generation
+        String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
+        final int[] batchCounter = {1}; // Use array to allow modification in lambda
+        if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
+            try {
+                batchCounter[0] = Integer.parseInt(lastBatchCode.substring(6)) + 1;
+            } catch (Exception e) {
+                batchCounter[0] = 1;
+            }
+        }
 
         // Only include items that have remaining quantity
         request.setItems(poItems.stream().filter(poItem -> {
@@ -483,6 +504,7 @@ public class GRNService {
             GRNItemRequest grnItem = new GRNItemRequest();
             grnItem.setProductId(poItem.getProduct().getProductId());
             grnItem.setOrderedQuantity(poItem.getQuantity()); // Original ordered quantity
+            grnItem.setAlreadyReceivedQuantity(receivedQty); // Cumulative received from previous GRNs
             grnItem.setReceivedQuantity(remainingQty); // Default to remaining (editable by user)
 
             // Use expected unit price if available, otherwise get last purchase price
@@ -498,8 +520,8 @@ public class GRNService {
                     grnItem.setSellingPrice(lastBatch.getSellingPrice());
                 } else {
                     // No history, estimate selling price as purchase price + 30% markup
-                    BigDecimal estimatedPurchasePrice = poItem.getExpectedUnitPrice() != null 
-                            ? poItem.getExpectedUnitPrice() 
+                    BigDecimal estimatedPurchasePrice = poItem.getExpectedUnitPrice() != null
+                            ? poItem.getExpectedUnitPrice()
                             : BigDecimal.valueOf(100.00); // Default fallback
                     grnItem.setFinalPurchasePrice(estimatedPurchasePrice);
                     // Estimate selling price as purchase + 30% markup (can be edited)
@@ -508,7 +530,8 @@ public class GRNService {
                 }
             }
 
-            grnItem.setBatchCode(generateBatchCode()); // Auto-generate batch code
+            // Generate unique batch code sequentially
+            grnItem.setBatchCode(String.format("BATCH-%05d", batchCounter[0]++));
             return grnItem;
         }).collect(Collectors.toList()));
 
@@ -518,6 +541,209 @@ public class GRNService {
         }
 
         return createGRN(request, createdBy);
+    }
+
+    /**
+     * Prepare GRN data from PO (read-only, for form auto-fill)
+     * Does NOT create GRN record in database
+     */
+    public GRNResponse prepareGRNFromPO(Integer poId) {
+        PurchaseOrder po = purchaseOrderRepository.findById(poId)
+                .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "id", poId));
+
+        // Allow preparing from ORDERED or PARTIALLY_RECEIVED POs
+        if (po.getStatus() != PurchaseOrder.POStatus.ORDERED &&
+                po.getStatus() != PurchaseOrder.POStatus.PARTIALLY_RECEIVED) {
+            throw new BusinessRuleViolationException(
+                    "Only ORDERED or PARTIALLY_RECEIVED purchase orders can be received. " +
+                            "Current status: " + po.getStatus());
+        }
+
+        // Get PO items
+        List<PurchaseOrderItem> poItems = purchaseOrderItemRepository
+                .findByPurchaseOrderRequestId(po.getRequestId());
+
+        // Build response object (NOT saved to database)
+        GRNResponse response = new GRNResponse();
+        response.setGrnNumber("AUTO-GEN");
+        response.setPoNumber(po.getPoNumber());
+        response.setSupplierName(po.getSupplier().getSupplierName());
+        response.setSupplierId(po.getSupplier().getSupplierId());
+        response.setReceivedDate(LocalDate.now());
+        response.setStatus(GRN.GRNStatus.RECEIVED); // Will be set when actually received
+
+        // Get initial batch code counter for sequential generation
+        String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
+        final int[] batchCounter = {1}; // Use array to allow modification in lambda
+        if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
+            try {
+                batchCounter[0] = Integer.parseInt(lastBatchCode.substring(6)) + 1;
+            } catch (Exception e) {
+                batchCounter[0] = 1;
+            }
+        }
+
+        // Prepare items with remaining quantities
+        List<GRNItemResponse> items = poItems.stream().filter(poItem -> {
+            int receivedQty = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0;
+            return receivedQty < poItem.getQuantity(); // Has remaining quantity
+        }).map(poItem -> {
+            int receivedQty = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0;
+            int remainingQty = poItem.getQuantity() - receivedQty;
+
+            GRNItemResponse item = new GRNItemResponse();
+            item.setProductId(poItem.getProduct().getProductId());
+            item.setProductName(poItem.getProduct().getProductName());
+            item.setOrderedQuantity(poItem.getQuantity());
+            item.setAlreadyReceivedQuantity(receivedQty);
+            item.setReceivedQuantity(remainingQty); // Default to remaining
+
+            // Set prices
+            ProductBatch lastBatch = productBatchRepository
+                    .findTopByProductProductIdOrderByReceivedDateDesc(poItem.getProduct().getProductId())
+                    .orElse(null);
+
+            if (poItem.getExpectedUnitPrice() != null) {
+                item.setFinalPurchasePrice(poItem.getExpectedUnitPrice());
+                // Set selling price from last batch or calculate with 30% markup
+                if (lastBatch != null && lastBatch.getSellingPrice() != null) {
+                    item.setSellingPrice(lastBatch.getSellingPrice());
+                } else {
+                    item.setSellingPrice(poItem.getExpectedUnitPrice().multiply(BigDecimal.valueOf(1.30)));
+                }
+            } else {
+                if (lastBatch != null) {
+                    item.setFinalPurchasePrice(lastBatch.getPurchasePrice());
+                    item.setSellingPrice(lastBatch.getSellingPrice());
+                } else {
+                    BigDecimal estimatedPrice = BigDecimal.valueOf(100.00);
+                    item.setFinalPurchasePrice(estimatedPrice);
+                    item.setSellingPrice(estimatedPrice.multiply(BigDecimal.valueOf(1.30)));
+                }
+            }
+
+            // Generate unique batch code sequentially
+            item.setBatchCode(String.format("BATCH-%05d", batchCounter[0]++));
+            return item;
+        }).collect(Collectors.toList());
+
+        response.setItems(items);
+        return response;
+    }
+
+    /**
+     * SIMPLIFIED WORKFLOW: Receive goods from PO in ONE transaction
+     * Creates GRN + creates batches + updates inventory + updates PO status
+     * No draft mode - direct receiving
+     */
+    @Transactional
+    public GRNResponse receiveGoodsFromPO(GRNRequest request, Integer receivedBy) {
+        // Validate PO
+        PurchaseOrder po = purchaseOrderRepository.findById(request.getPurchaseOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("PurchaseOrder", "id", request.getPurchaseOrderId()));
+
+        if (po.getStatus() != PurchaseOrder.POStatus.ORDERED &&
+                po.getStatus() != PurchaseOrder.POStatus.PARTIALLY_RECEIVED) {
+            throw new BusinessRuleViolationException(
+                    "Can only receive from ORDERED or PARTIALLY_RECEIVED purchase orders");
+        }
+
+        // Create GRN record
+        GRN grn = new GRN();
+        grn.setGrnNumber(generateGRNNumber());
+        grn.setSupplier(po.getSupplier());
+        grn.setPurchaseOrder(po);
+        grn.setReceivedDate(request.getReceivedDate() != null ? request.getReceivedDate() : LocalDate.now());
+        grn.setInvoiceNumber(request.getInvoiceNumber());
+        grn.setNotes(request.getNotes());
+        grn.setReceivedBy(receivedBy);
+        grn.setCreatedBy(receivedBy);
+        grn.setStatus(GRN.GRNStatus.RECEIVED); // Direct to RECEIVED (no draft)
+        grn.setGrandTotal(BigDecimal.ZERO); // Will update after items
+
+        // SAVE GRN FIRST (so it's not transient when we create GRNItems)
+        grn = grnRepository.save(grn);
+
+        BigDecimal grandTotal = BigDecimal.ZERO;
+
+        // Get initial batch code counter for sequential generation within transaction
+        String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
+        int batchCounter = 1;
+        if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
+            try {
+                batchCounter = Integer.parseInt(lastBatchCode.substring(6)) + 1;
+            } catch (Exception e) {
+                batchCounter = 1;
+            }
+        }
+
+        // Process each item: Create GRN item + Create batch + Update inventory
+        for (GRNItemRequest itemReq : request.getItems()) {
+            if (itemReq.getReceivedQuantity() == null || itemReq.getReceivedQuantity() <= 0) {
+                continue; // Skip items with no quantity
+            }
+
+            Product product = productRepository.findById(itemReq.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", itemReq.getProductId()));
+
+            // Create GRN Item
+            GRNItem grnItem = new GRNItem();
+            grnItem.setGrn(grn);
+            grnItem.setProduct(product);
+            grnItem.setOrderedQuantity(itemReq.getOrderedQuantity());
+            grnItem.setReceivedQuantity(itemReq.getReceivedQuantity());
+            grnItem.setFinalPurchasePrice(itemReq.getFinalPurchasePrice());
+            grnItem.setSellingPrice(itemReq.getSellingPrice());
+            grnItem.setExpiryDate(itemReq.getExpiryDate());
+            // Generate unique batch code sequentially to avoid duplicates in same transaction
+            if (itemReq.getBatchCode() != null && !itemReq.getBatchCode().trim().isEmpty()) {
+                grnItem.setBatchCode(itemReq.getBatchCode());
+            } else {
+                grnItem.setBatchCode(String.format("BATCH-%05d", batchCounter++));
+            }
+            grnItem.setLineTotal(BigDecimal.valueOf(itemReq.getReceivedQuantity())
+                    .multiply(itemReq.getFinalPurchasePrice()));
+
+            grnItemRepository.save(grnItem);
+            grandTotal = grandTotal.add(grnItem.getLineTotal());
+
+            // Create ProductBatch
+            ProductBatch batch = new ProductBatch();
+            batch.setProduct(product);
+            batch.setBatchCode(grnItem.getBatchCode());
+            batch.setReceivedQuantity(itemReq.getReceivedQuantity());
+            batch.setStockQuantity(itemReq.getReceivedQuantity());
+            batch.setPurchasePrice(itemReq.getFinalPurchasePrice());
+            // Auto-calculate selling price if not provided (30% markup)
+            batch.setSellingPrice(itemReq.getSellingPrice() != null
+                    ? itemReq.getSellingPrice()
+                    : itemReq.getFinalPurchasePrice().multiply(BigDecimal.valueOf(1.30)));
+            batch.setExpiryDate(itemReq.getExpiryDate());
+            batch.setReceivedDate(grn.getReceivedDate());
+            batch.setStatus(ProductBatch.BatchStatus.IN_STOCK);
+            productBatchRepository.save(batch);
+
+            // Create StockMovement
+            StockMovement movement = new StockMovement();
+            movement.setBatch(batch);
+            movement.setMovementType(StockMovement.MovementType.GRN);
+            movement.setQuantity(itemReq.getReceivedQuantity());
+            movement.setBeforeQuantity(0);
+            movement.setAfterQuantity(itemReq.getReceivedQuantity());
+            movement.setReferenceNumber(grn.getGrnNumber());
+            movement.setReferenceType("GRN");
+            movement.setNotes("GRN: " + grn.getGrnNumber());
+            stockMovementRepository.save(movement);
+        }
+
+        grn.setGrandTotal(grandTotal);
+        grn = grnRepository.save(grn);
+
+        // Update PO receiving status
+        List<GRNItem> grnItems = grnItemRepository.findByGrnGrnId(grn.getGrnId());
+        updatePurchaseOrderReceiving(po.getRequestId(), grnItems);
+
+        return toResponseWithItems(grn);
     }
 
     public Double getTotalPurchaseValue(LocalDate fromDate, LocalDate toDate) {
@@ -572,14 +798,28 @@ public class GRNService {
         GRNResponse response = toResponse(grn);
 
         List<GRNItem> items = grnItemRepository.findByGrnGrnId(grn.getGrnId());
-        response.setItems(items.stream().map(this::toItemResponse).collect(Collectors.toList()));
+
+        // If GRN is linked to a PO, get PO items to populate alreadyReceivedQuantity
+        Map<Integer, Integer> alreadyReceivedMap = new HashMap<>();
+        if (grn.getPurchaseOrder() != null) {
+            List<PurchaseOrderItem> poItems = purchaseOrderItemRepository
+                    .findByPurchaseOrderRequestId(grn.getPurchaseOrder().getRequestId());
+            for (PurchaseOrderItem poItem : poItems) {
+                int alreadyReceived = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0;
+                alreadyReceivedMap.put(poItem.getProduct().getProductId(), alreadyReceived);
+            }
+        }
+
+        response.setItems(items.stream()
+                .map(item -> toItemResponse(item, alreadyReceivedMap))
+                .collect(Collectors.toList()));
         response.setTotalItems(items.size());
         response.setTotalQuantity(items.stream().mapToInt(GRNItem::getReceivedQuantity).sum());
 
         return response;
     }
 
-    private GRNItemResponse toItemResponse(GRNItem item) {
+    private GRNItemResponse toItemResponse(GRNItem item, Map<Integer, Integer> alreadyReceivedMap) {
         GRNItemResponse response = new GRNItemResponse();
         response.setGrnItemId(item.getGrnItemId());
         response.setProductId(item.getProduct().getProductId());
@@ -587,6 +827,14 @@ public class GRNService {
         response.setProductCode(item.getProduct().getProductCode());
         response.setBatchCode(item.getBatchCode());
         response.setOrderedQuantity(item.getOrderedQuantity());
+
+        // Set alreadyReceivedQuantity from map if available
+        if (alreadyReceivedMap.containsKey(item.getProduct().getProductId())) {
+            response.setAlreadyReceivedQuantity(alreadyReceivedMap.get(item.getProduct().getProductId()));
+        } else {
+            response.setAlreadyReceivedQuantity(0);
+        }
+
         response.setReceivedQuantity(item.getReceivedQuantity());
 
         if (item.getOrderedQuantity() != null) {

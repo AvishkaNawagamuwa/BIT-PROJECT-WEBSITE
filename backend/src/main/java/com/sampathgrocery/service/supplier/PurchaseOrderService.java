@@ -161,6 +161,23 @@ public class PurchaseOrderService {
         return toResponse(po);
     }
 
+    public PurchaseOrderResponse cancelPurchaseOrder(Integer id, String reason) {
+        PurchaseOrder po = findById(id);
+
+        // Can cancel DRAFT or APPROVED purchase orders
+        if (po.getStatus() != PurchaseOrder.POStatus.DRAFT &&
+                po.getStatus() != PurchaseOrder.POStatus.APPROVED) {
+            throw new BusinessRuleViolationException(
+                    "Only DRAFT or APPROVED purchase orders can be cancelled. Current status: " + po.getStatus());
+        }
+
+        po.setStatus(PurchaseOrder.POStatus.CANCELLED);
+        po.setRejectionReason(reason);
+        po = purchaseOrderRepository.save(po);
+
+        return toResponse(po);
+    }
+
     public PurchaseOrderResponse markAsCompleted(Integer id) {
         PurchaseOrder po = findById(id);
         po.setStatus(PurchaseOrder.POStatus.RECEIVED);

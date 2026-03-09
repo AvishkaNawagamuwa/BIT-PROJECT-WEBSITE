@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * සපයන්නන් - Supplier Master Records
@@ -72,6 +74,10 @@ public class Supplier {
 
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    // Many-to-Many relationship with Products through SupplierProduct
+    @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SupplierProduct> supplierProducts = new ArrayList<>();
 
     // Audit fields
     @Column(name = "created_at", nullable = false, updatable = false)

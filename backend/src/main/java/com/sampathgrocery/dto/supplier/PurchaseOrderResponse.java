@@ -40,13 +40,13 @@ public class PurchaseOrderResponse {
     private List<PurchaseOrderItemResponse> items;
     private Integer totalItems;
     private Integer totalQuantity;
-    
+
     // Receiving tracking fields
     private Integer totalOrdered;
     private Integer totalReceived;
     private Integer totalRemaining;
     private String receivingStatus; // WAITING, PARTIAL, RECEIVED
-    
+
     // Helper method to get receiving status
     public String getReceivingStatus() {
         if (totalReceived == null || totalReceived == 0) {

@@ -9,6 +9,7 @@ let editingSupplierId = null;
 let editingPOId = null;
 let currentPOItems = [];
 let viewingPOIndex = -1;
+let selectedProductIds = []; // Track selected products for supplier
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', async function () {
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     displayLowStockItems();
     await generatePONumber();
     setDefaultDates();
+    populateProductCheckboxes(); // Populate product checkboxes for supplier form
     console.log('✅ All data loaded successfully');
 });
 
@@ -395,7 +397,276 @@ function setupEventListeners() {
     // PO item calculations
     document.getElementById('itemQuantity').addEventListener('input', calculateItemTotal);
     document.getElementById('itemUnitPrice').addEventListener('input', calculateItemTotal);
+
+    // Product search in supplier form
+    document.getElementById('searchProducts').addEventListener('input', filterProductCheckboxes);
+
+    // Dynamic PO supplier/product filtering
+    const poSupplier = document.getElementById('poSupplier');
+    const itemProduct = document.getElementById('itemProduct');
+
+    if (poSupplier) {
+        poSupplier.addEventListener('change', onPOSupplierChange);
+    }
+
+    if (itemProduct) {
+        itemProduct.addEventListener('change', onPOProductChange);
+    }
 }
+
+// Product checkbox handling for supplier form
+function populateProductCheckboxes() {
+    const container = document.getElementById('productCheckboxList');
+    if (!container) return;
+
+    if (!products || products.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-3">No products available</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+
+    products.forEach(product => {
+        const isActive = product.isActive === true || product.isActive === 1;
+        if (!isActive) return; // Only show active products
+
+        const checkboxId = `product-${product.productId}`;
+        const checkbox = document.createElement('div');
+        checkbox.className = 'form-check mb-2 product-checkbox-item';
+        checkbox.innerHTML = `
+            <input class="form-check-input product-checkbox" type="checkbox" value="${product.productId}" id="${checkboxId}"
+                onchange="updateSelectedProductCount()">
+            <label class="form-check-label" for="${checkboxId}">
+                <strong>${product.productName}</strong>
+                <br>
+                <small class="text-muted">
+                    ${product.productCode} | ${product.categoryName || 'No Category'} | ${product.barcode || 'No Barcode'}
+                </small>
+            </label>
+        `;
+        container.appendChild(checkbox);
+    });
+
+    updateSelectedProductCount();
+}
+
+function filterProductCheckboxes() {
+    const searchTerm = document.getElementById('searchProducts').value.toLowerCase();
+    const checkboxItems = document.querySelectorAll('.product-checkbox-item');
+
+    checkboxItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function updateSelectedProductCount() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedProductCount').textContent = count;
+
+    // Update global selectedProductIds
+    selectedProductIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function getSelectedProductIds() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function setSelectedProducts(productIds) {
+    // Uncheck all first
+    document.querySelectorAll('.product-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Check the selected ones
+    if (productIds && productIds.length > 0) {
+        productIds.forEach(productId => {
+            const checkbox = document.getElementById(`product-${productId}`);
+            if (checkbox) {
+                checkbox.checked = true;
+            }
+        });
+    }
+
+    updateSelectedProductCount();
+}
+
+// === Purchase Order Supplier/Product Dynamic Filtering ===
+
+// Original unfiltered lists
+let allPOSuppliers = [];
+let allPOProducts = [];
+
+// When PO supplier is selected, filter products to only those the supplier can supply
+async function onPOSupplierChange() {
+    const supplierId = parseInt(document.getElementById('poSupplier').value);
+    const itemProductDropdown = document.getElementById('itemProduct');
+    const itemUnitPriceField = document.getElementById('itemUnitPrice');
+
+    if (!supplierId) {
+        // If no supplier selected, show all products
+        populateItemProductDropdown(products);
+        return;
+    }
+
+    try {
+        // Get products that this supplier can supply
+        const response = await fetch(`/api/supplier-products/suppliers/${supplierId}/products`);
+        if (!response.ok) {
+            throw new Error('Failed to load supplier products');
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+            populateItemProductDropdown(result.data);
+
+            // Clear current product selection if it's not in the filtered list
+            const currentProductId = parseInt(itemProductDropdown.value);
+            if (currentProductId) {
+                const stillValid = result.data.some(p => p.productId === currentProductId);
+                if (!stillValid) {
+                    itemProductDropdown.value = '';
+                    itemUnitPriceField.value = '';
+                    document.getElementById('itemTotal').value = '';
+                } else {
+                    // If product is still valid, reload price
+                    await loadSuggestedPrice(supplierId, currentProductId);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading supplier products:', error);
+        showToast('Failed to load products for supplier', 'error');
+    }
+}
+
+// When PO product is selected, filter suppliers to only those who can supply it
+async function onPOProductChange() {
+    const productId = parseInt(document.getElementById('itemProduct').value);
+    const poSupplierDropdown = document.getElementById('poSupplier');
+    const itemUnitPriceField = document.getElementById('itemUnitPrice');
+
+    if (!productId) {
+        // If no product selected, show all suppliers
+        populatePOSupplierDropdown(suppliers);
+        return;
+    }
+
+    try {
+        // Get suppliers that can supply this product
+        const response = await fetch(`/api/supplier-products/products/${productId}/suppliers`);
+        if (!response.ok) {
+            throw new Error('Failed to load product suppliers');
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+            populatePOSupplierDropdown(result.data);
+
+            // Clear current supplier selection if it's not in the filtered list
+            const currentSupplierId = parseInt(poSupplierDropdown.value);
+            if (currentSupplierId) {
+                const stillValid = result.data.some(s => s.supplierId === currentSupplierId);
+                if (!stillValid) {
+                    poSupplierDropdown.value = '';
+                    itemUnitPriceField.value = '';
+                    document.getElementById('itemTotal').value = '';
+                } else {
+                    // If supplier is still valid, reload price
+                    await loadSuggestedPrice(currentSupplierId, productId);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading product suppliers:', error);
+        showToast('Failed to load suppliers for product', 'error');
+    }
+}
+
+// Load suggested unit price based on supplier-product combination
+async function loadSuggestedPrice(supplierId, productId) {
+    if (!supplierId || !productId) return;
+
+    try {
+        const response = await fetch(`/api/supplier-products/price?supplierId=${supplierId}&productId=${productId}`);
+        if (!response.ok) {
+            // If no relationship found, just clear price
+            console.log('No supplier-product relationship found');
+            return;
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+            const priceInfo = result.data;
+
+            // Use suggested price (last PO price or default price)
+            if (priceInfo.suggestedUnitPrice) {
+                document.getElementById('itemUnitPrice').value = priceInfo.suggestedUnitPrice;
+                calculateItemTotal();
+
+                // Show tooltip or message about price source
+                let priceSource = '';
+                if (priceInfo.lastPurchasePrice) {
+                    priceSource = `Last purchase price: Rs. ${priceInfo.lastPurchasePrice}`;
+                } else if (priceInfo.defaultPurchasePrice) {
+                    priceSource = `Default price: Rs. ${priceInfo.defaultPurchasePrice}`;
+                }
+
+                if (priceSource) {
+                    console.log('Price loaded:', priceSource);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading price:', error);
+        // Don't show error toast, just log it
+    }
+}
+
+// Populate item product dropdown with filtered products
+function populateItemProductDropdown(productList) {
+    const itemProduct = document.getElementById('itemProduct');
+    if (!itemProduct) return;
+
+    const currentValue = itemProduct.value;
+    itemProduct.innerHTML = '<option value="">Select Product</option>';
+
+    productList.forEach(product => {
+        const option = `<option value="${product.productId}">${product.productName} (${product.productCode})</option>`;
+        itemProduct.innerHTML += option;
+    });
+
+    // Restore previous selection if it still exists
+    if (currentValue && productList.some(p => p.productId == currentValue)) {
+        itemProduct.value = currentValue;
+    }
+}
+
+// Populate PO supplier dropdown with filtered suppliers
+function populatePOSupplierDropdown(supplierList) {
+    const poSupplier = document.getElementById('poSupplier');
+    if (!poSupplier) return;
+
+    const currentValue = poSupplier.value;
+    poSupplier.innerHTML = '<option value="">Select Supplier</option>';
+
+    supplierList.forEach(supplier => {
+        const option = `<option value="${supplier.supplierId}">${supplier.supplierName} (${supplier.supplierCode})</option>`;
+        poSupplier.innerHTML += option;
+    });
+
+    // Restore previous selection if it still exists
+    if (currentValue && supplierList.some(s => s.supplierId == currentValue)) {
+        poSupplier.value = currentValue;
+    }
+}
+
 
 // Generate supplier code from API
 async function generateSupplierCode() {
@@ -437,26 +708,26 @@ function displaySuppliers(suppliersToDisplay = suppliers) {
     suppliersToDisplay.forEach((supplier, index) => {
         const row = document.createElement('tr');
 
+        // Get product count
+        const productCount = supplier.totalProducts || (supplier.suppliedProducts ? supplier.suppliedProducts.length : 0);
+
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>
                 <div class="fw-bold">${supplier.supplierName}</div>
                 <small class="text-muted">${supplier.supplierCode}</small>
             </td>
-            <td>
-                <div>${supplier.contactPerson || '-'}</div>
-                <small class="text-muted">${supplier.phone}</small>
-            </td>
+            <td>${supplier.contactPerson || '-'}</td>
+            <td>${supplier.phone || '-'}</td>
             <td>${supplier.email || '-'}</td>
-            <td>
-                <div>${supplier.address}</div>
-                ${supplier.city ? `<small class="text-muted">${supplier.city}</small>` : ''}
-            </td>
             <td>${supplier.paymentTerms || '-'}</td>
             <td>
                 <span class="badge ${supplier.isActive ? 'bg-success' : 'bg-secondary'}">
                     ${supplier.isActive ? 'Active' : 'Inactive'}
                 </span>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-info">${productCount}</span>
             </td>
             <td>
                 <button class="btn btn-outline-primary btn-sm me-1" onclick="editSupplier(${supplier.supplierId})" title="Edit">
@@ -698,7 +969,8 @@ function getSupplierFormData() {
         city: document.getElementById('city').value.trim() || null,
         paymentTerms: document.getElementById('paymentTerms').value.trim() || null,
         creditLimit: parseFloat(document.getElementById('supplierCreditLimit').value) || 0,
-        isActive: document.getElementById('supplierIsActive').checked
+        isActive: document.getElementById('supplierIsActive').checked,
+        productIds: getSelectedProductIds() // Include selected products
     };
 }
 
@@ -726,6 +998,14 @@ async function editSupplier(supplierId) {
             document.getElementById('paymentTerms').value = supplier.paymentTerms || '';
             document.getElementById('supplierCreditLimit').value = supplier.creditLimit || 0;
             document.getElementById('supplierIsActive').checked = supplier.isActive;
+
+            // Set selected products
+            if (supplier.suppliedProducts && supplier.suppliedProducts.length > 0) {
+                const productIds = supplier.suppliedProducts.map(sp => sp.productId);
+                setSelectedProducts(productIds);
+            } else {
+                setSelectedProducts([]);
+            }
 
             // Change button text
             document.getElementById('btnSubmitSupplier').innerHTML = '<i class="fas fa-save"></i> Update Supplier';
@@ -798,6 +1078,9 @@ async function deleteSupplier(supplierId) {
 function clearSupplierForm() {
     document.getElementById('supplierForm').reset();
     editingSupplierId = null;
+
+    // Clear selected products
+    setSelectedProducts([]);
 
     // Generate new supplier code
     generateSupplierCode();
@@ -1327,53 +1610,126 @@ function formatCurrency(amount) {
 
 function getStatusBadge(status) {
     const statusClasses = {
-        'Pending': 'bg-warning',
+        // Old format (for backward compatibility)
+        'Pending': 'bg-warning text-dark',
         'Approved': 'bg-info',
         'Received': 'bg-success',
         'Cancelled': 'bg-danger',
+        // New ERP format
         'DRAFT': 'bg-secondary',
+        'PENDING': 'bg-warning text-dark',
         'APPROVED': 'bg-info',
-        'PARTIALLY_RECEIVED': 'bg-warning',
+        'ORDERED': 'bg-primary',
+        'PARTIALLY_RECEIVED': 'bg-warning text-dark',
         'RECEIVED': 'bg-success',
+        'REJECTED': 'bg-danger',
         'CANCELLED': 'bg-danger'
     };
 
-    return `<span class="badge ${statusClasses[status] || 'bg-secondary'}">${status}</span>`;
+    return `<span class="badge ${statusClasses[status] || 'bg-secondary'}">${status.replace(/_/g, ' ')}</span>`;
 }
 
 // Get action buttons based on PO status
 function getPOActionButtons(po, index) {
     let buttons = '';
-    
-    // Show Approve button for DRAFT status
-    if (po.status === 'DRAFT' || po.status === 'Pending') {
+    const poId = po.requestId;
+
+    // DRAFT: Edit | Submit | Cancel
+    if (po.status === 'DRAFT') {
         buttons += `
-            <button class="btn btn-success btn-sm me-1" onclick="approvePurchaseOrder(${po.requestId})" title="Approve PO">
+            <button class="btn btn-primary btn-sm me-1" onclick="editPurchaseOrder(${index})" title="Edit PO">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-warning btn-sm me-1" onclick="submitPurchaseOrder(${poId})" title="Submit for Approval">
+                <i class="fas fa-paper-plane"></i> Submit
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="cancelPurchaseOrder(${poId})" title="Cancel PO">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        `;
+    }
+    // PENDING: Edit | Approve | Reject
+    else if (po.status === 'PENDING') {
+        buttons += `
+            <button class="btn btn-primary btn-sm me-1" onclick="editPurchaseOrder(${index})" title="Edit PO">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-success btn-sm me-1" onclick="approvePurchaseOrder(${poId})" title="Approve PO">
                 <i class="fas fa-check"></i> Approve
             </button>
-            <button class="btn btn-danger btn-sm" onclick="cancelPurchaseOrder(${po.requestId})" title="Cancel PO">
-                <i class="fas fa-times"></i> Cancel
+            <button class="btn btn-danger btn-sm" onclick="rejectPurchaseOrder(${poId})" title="Reject PO">
+                <i class="fas fa-ban"></i> Reject
             </button>
         `;
     }
-    // Show Cancel button for APPROVED status
-    else if (po.status === 'APPROVED' || po.status === 'Approved') {
+    // APPROVED: View | Ordered | Cancel
+    else if (po.status === 'APPROVED') {
         buttons += `
-            <button class="btn btn-danger btn-sm" onclick="cancelPurchaseOrder(${po.requestId})" title="Cancel PO">
+            <button class="btn btn-info btn-sm me-1" onclick="viewPurchaseOrder(${index})" title="View Details">
+                <i class="fas fa-eye"></i> View
+            </button>
+            <button class="btn btn-primary btn-sm me-1" onclick="markAsOrdered(${poId})" title="Mark as Ordered">
+                <i class="fas fa-truck"></i> Ordered
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="cancelPurchaseOrder(${poId})" title="Cancel PO">
                 <i class="fas fa-times"></i> Cancel
             </button>
         `;
     }
-    
+    // ORDERED or PARTIALLY_RECEIVED: View only (Receive via GRN Records tab)
+    else if (po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED') {
+        buttons += `
+            <button class="btn btn-info btn-sm" onclick="viewPurchaseOrder(${index})" title="View Details">
+                <i class="fas fa-eye"></i> View
+            </button>
+        `;
+    }
+    // RECEIVED, REJECTED, CANCELLED: View only
+    else if (po.status === 'RECEIVED' || po.status === 'REJECTED' || po.status === 'CANCELLED') {
+        buttons += `
+            <button class="btn btn-info btn-sm" onclick="viewPurchaseOrder(${index})" title="View Details">
+                <i class="fas fa-eye"></i> View
+            </button>
+        `;
+    }
+
     return buttons;
 }
 
-// Approve Purchase Order
+// Submit Purchase Order for Approval (DRAFT → PENDING)
+async function submitPurchaseOrder(poId) {
+    if (!confirm('Submit this Purchase Order for approval?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/purchase-orders/${poId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Purchase Order submitted for approval!', 'success');
+            loadPurchaseOrders(); // Reload the list
+        } else {
+            showToast(result.message || 'Failed to submit purchase order', 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting PO:', error);
+        showToast('Failed to submit purchase order', 'error');
+    }
+}
+
+// Approve Purchase Order (PENDING → APPROVED)
 async function approvePurchaseOrder(poId) {
     if (!confirm('Are you sure you want to APPROVE this Purchase Order?')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/purchase-orders/${poId}/approve`, {
             method: 'POST',
@@ -1381,11 +1737,11 @@ async function approvePurchaseOrder(poId) {
                 'Content-Type': 'application/json'
             }
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
-            showToast('Purchase Order approved successfully! It will now appear in GRN Receiving Dashboard.', 'success');
+            showToast('Purchase Order approved successfully!', 'success');
             loadPurchaseOrders(); // Reload the list
         } else {
             showToast(result.message || 'Failed to approve purchase order', 'error');
@@ -1396,14 +1752,14 @@ async function approvePurchaseOrder(poId) {
     }
 }
 
-// Cancel/Reject Purchase Order
-async function cancelPurchaseOrder(poId) {
-    const reason = prompt('Please enter reason for cancellation:');
+// Reject Purchase Order (PENDING → REJECTED)
+async function rejectPurchaseOrder(poId) {
+    const reason = prompt('Please enter reason for rejection:');
     if (!reason || !reason.trim()) {
-        showToast('Cancellation reason is required', 'error');
+        showToast('Rejection reason is required', 'error');
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/purchase-orders/${poId}/reject`, {
             method: 'POST',
@@ -1412,9 +1768,68 @@ async function cancelPurchaseOrder(poId) {
             },
             body: JSON.stringify({ reason: reason.trim() })
         });
-        
+
         const result = await response.json();
-        
+
+        if (result.success) {
+            showToast('Purchase Order rejected!', 'success');
+            loadPurchaseOrders(); // Reload the list
+        } else {
+            showToast(result.message || 'Failed to reject purchase order', 'error');
+        }
+    } catch (error) {
+        console.error('Error rejecting PO:', error);
+        showToast('Failed to reject purchase order', 'error');
+    }
+}
+
+// Mark as Ordered (APPROVED → ORDERED)
+async function markAsOrdered(poId) {
+    if (!confirm('Mark this Purchase Order as ORDERED (sent to supplier)?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/purchase-orders/${poId}/mark-ordered`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Purchase Order marked as ORDERED! It will now appear in GRN Receiving Dashboard.', 'success');
+            loadPurchaseOrders(); // Reload the list
+        } else {
+            showToast(result.message || 'Failed to mark as ordered', 'error');
+        }
+    } catch (error) {
+        console.error('Error marking PO as ordered:', error);
+        showToast('Failed to mark as ordered', 'error');
+    }
+}
+
+// Cancel Purchase Order (DRAFT/APPROVED → CANCELLED)
+async function cancelPurchaseOrder(poId) {
+    const reason = prompt('Please enter reason for cancellation:');
+    if (!reason || !reason.trim()) {
+        showToast('Cancellation reason is required', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/purchase-orders/${poId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason.trim() })
+        });
+
+        const result = await response.json();
+
         if (result.success) {
             showToast('Purchase Order cancelled successfully!', 'success');
             loadPurchaseOrders(); // Reload the list
@@ -1427,10 +1842,31 @@ async function cancelPurchaseOrder(poId) {
     }
 }
 
+// Navigate to GRN Records tab (for Add GRN action)
+function goToGRNTab() {
+    // Switch to GRN Records tab
+    const grnTab = document.querySelector('[data-bs-target="#grn"]');
+    if (grnTab) {
+        grnTab.click();
+
+        // Initialize GRN Dashboard after tab is shown
+        setTimeout(() => {
+            if (typeof GRNDashboard !== 'undefined') {
+                console.log('Initializing GRN Dashboard from goToGRNTab');
+                GRNDashboard.init();
+            } else {
+                console.error('GRNDashboard not loaded!');
+            }
+        }, 100);
+
+        showToast('Click "Receive" button next to the PO you want to receive', 'info');
+    }
+}
+
 // Helper function to show toast notifications
 function showToast(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
-    
+
     // Create toast container if it doesn't exist
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
@@ -1439,7 +1875,7 @@ function showToast(message, type = 'info') {
         toastContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
         document.body.appendChild(toastContainer);
     }
-    
+
     // Create toast element
     const toast = document.createElement('div');
     const bgColor = {
@@ -1448,7 +1884,7 @@ function showToast(message, type = 'info') {
         'warning': '#ffc107',
         'info': '#17a2b8'
     }[type] || '#6c757d';
-    
+
     toast.style.cssText = `
         background-color: ${bgColor};
         color: white;
@@ -1460,9 +1896,9 @@ function showToast(message, type = 'info') {
         animation: slideIn 0.3s ease-out;
     `;
     toast.textContent = message;
-    
+
     toastContainer.appendChild(toast);
-    
+
     // Auto remove after 3 seconds
     setTimeout(() => {
         toast.style.animation = 'slideOut 0.3s ease-out';

@@ -63,6 +63,27 @@ public class GRNController {
                 .body(ApiResponse.success("GRN created from purchase order", grn));
     }
 
+    /**
+     * Prepare GRN data from PO (for form auto-fill, does not create record)
+     */
+    @GetMapping("/prepare-from-po/{poId}")
+    public ResponseEntity<ApiResponse<GRNResponse>> prepareGRNFromPO(@PathVariable Integer poId) {
+        GRNResponse grnData = grnService.prepareGRNFromPO(poId);
+        return ResponseEntity.ok(ApiResponse.success("GRN data prepared", grnData));
+    }
+
+    /**
+     * Receive goods directly from PO (simplified workflow)
+     * Creates GRN + Batches + Updates Inventory in one transaction
+     */
+    @PostMapping("/receive-from-po")
+    public ResponseEntity<ApiResponse<GRNResponse>> receiveGoodsFromPO(
+            @Valid @RequestBody GRNRequest request) {
+        GRNResponse grn = grnService.receiveGoodsFromPO(request, CURRENT_USER_ID);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Goods received successfully! Inventory and batches updated.", grn));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<GRNResponse>> updateDraftGRN(
             @PathVariable Integer id,

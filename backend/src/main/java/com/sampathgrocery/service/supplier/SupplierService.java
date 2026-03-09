@@ -1,16 +1,22 @@
 package com.sampathgrocery.service.supplier;
 
+import com.sampathgrocery.dto.supplier.SupplierProductResponse;
 import com.sampathgrocery.dto.supplier.SupplierRequest;
 import com.sampathgrocery.dto.supplier.SupplierResponse;
+import com.sampathgrocery.entity.product.Product;
 import com.sampathgrocery.entity.supplier.Supplier;
+import com.sampathgrocery.entity.supplier.SupplierProduct;
 import com.sampathgrocery.exception.BadRequestException;
 import com.sampathgrocery.exception.ResourceNotFoundException;
+import com.sampathgrocery.repository.product.ProductRepository;
+import com.sampathgrocery.repository.supplier.SupplierProductRepository;
 import com.sampathgrocery.repository.supplier.SupplierRepository;
 import com.sampathgrocery.util.CodeGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,6 +26,8 @@ import java.util.stream.Collectors;
 public class SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final SupplierProductRepository supplierProductRepository;
+    private final ProductRepository productRepository;
 
     public List<SupplierResponse> getAllSuppliers(Boolean active) {
         List<Supplier> suppliers = active != null && active
@@ -76,6 +84,12 @@ public class SupplierService {
         supplier.setUpdatedBy(createdBy);
 
         supplier = supplierRepository.save(supplier);
+
+        // Handle product associations
+        if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
+            addProductsToSupplier(supplier.getSupplierId(), request.getProductIds(), createdBy);
+        }
+
         return toResponse(supplier);
     }
 
@@ -102,6 +116,12 @@ public class SupplierService {
         supplier.setUpdatedBy(updatedBy);
 
         supplier = supplierRepository.save(supplier);
+
+        // Update product associations if provided
+        if (request.getProductIds() != null) {
+            updateSupplierProducts(id, request.getProductIds(), updatedBy);
+        }
+
         return toResponse(supplier);
     }
 
@@ -114,6 +134,52 @@ public class SupplierService {
     public String generateSupplierCode() {
         String lastCode = supplierRepository.findLastSupplierCode().orElse(null);
         return CodeGenerator.generateSupplierCode(lastCode);
+    }
+
+    // Supplier-Product relationship methods
+    public void addProductsToSupplier(Integer supplierId, List<Integer> productIds, Integer createdBy) {
+        Supplier supplier = findById(supplierId);
+
+        for (Integer productId : productIds) {
+            // Check if relationship already exists
+            if (supplierProductRepository.findBySupplierIdAndProductId(supplierId, productId).isPresent()) {
+                continue; // Skip if already exists
+            }
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+
+            SupplierProduct supplierProduct = new SupplierProduct();
+            supplierProduct.setSupplier(supplier);
+            supplierProduct.setProduct(product);
+            supplierProduct.setStatus(SupplierProduct.SupplierProductStatus.ACTIVE);
+            supplierProduct.setCreatedBy(createdBy);
+            supplierProduct.setUpdatedBy(createdBy);
+
+            supplierProductRepository.save(supplierProduct);
+        }
+    }
+
+    public void updateSupplierProducts(Integer supplierId, List<Integer> productIds, Integer updatedBy) {
+        // Remove all existing products
+        supplierProductRepository.deleteBySupplier(supplierId);
+
+        // Add new products
+        if (!productIds.isEmpty()) {
+            addProductsToSupplier(supplierId, productIds, updatedBy);
+        }
+    }
+
+    public void removeProductFromSupplier(Integer supplierId, Integer productId) {
+        supplierProductRepository.deleteBySupplierAndProduct(supplierId, productId);
+    }
+
+    public List<SupplierProductResponse> getSupplierProducts(Integer supplierId) {
+        List<SupplierProduct> supplierProducts = supplierProductRepository.findBySupplierIdAndActive(supplierId);
+
+        return supplierProducts.stream()
+                .map(this::toSupplierProductResponse)
+                .collect(Collectors.toList());
     }
 
     // Helper methods
@@ -137,6 +203,35 @@ public class SupplierService {
         response.setCreditLimit(supplier.getCreditLimit());
         response.setIsActive(supplier.getIsActive());
         response.setCreatedAt(supplier.getCreatedAt());
+
+        // Add supplier products
+        List<SupplierProduct> products = supplierProductRepository.findBySupplierIdAndActive(supplier.getSupplierId());
+        response.setSuppliedProducts(products.stream()
+                .map(this::toSupplierProductResponse)
+                .collect(Collectors.toList()));
+        response.setTotalProducts(products.size());
+
+        return response;
+    }
+
+    private SupplierProductResponse toSupplierProductResponse(SupplierProduct sp) {
+        SupplierProductResponse response = new SupplierProductResponse();
+        response.setId(sp.getId());
+        response.setSupplierId(sp.getSupplier().getSupplierId());
+        response.setSupplierName(sp.getSupplier().getSupplierName());
+        response.setProductId(sp.getProduct().getProductId());
+        response.setProductCode(sp.getProduct().getProductCode());
+        response.setProductName(sp.getProduct().getProductName());
+        response.setProductCategory(
+                sp.getProduct().getCategory() != null ? sp.getProduct().getCategory().getCategoryName() : null);
+        response.setBarcode(sp.getProduct().getBarcode());
+        response.setSupplierProductCode(sp.getSupplierProductCode());
+        response.setPurchasePrice(sp.getPurchasePrice());
+        response.setLeadTimeDays(sp.getLeadTimeDays());
+        response.setMinimumOrderQty(sp.getMinimumOrderQty());
+        response.setIsPrimarySupplier(sp.getIsPrimarySupplier());
+        response.setLastSuppliedDate(sp.getLastSuppliedDate());
+        response.setStatus(sp.getStatus().name());
         return response;
     }
 }
