@@ -230,7 +230,7 @@ async function submitCustomerForm() {
         const newCustomer = result.data;
 
         // Update profile if we have additional data
-        if (profileData.dateOfBirth || profileData.gender || profileData.notes) {
+        if (profileData.notes) {
             await updateCustomerProfile(newCustomer.customerId, profileData);
         }
 
@@ -277,7 +277,7 @@ async function updateCustomer() {
         }
 
         // Update profile
-        if (profileData.dateOfBirth || profileData.gender || profileData.notes) {
+        if (profileData.notes) {
             await updateCustomerProfile(editingCustomerId, profileData);
         }
 
@@ -360,6 +360,7 @@ async function editCustomer(customerId) {
         document.getElementById('email').value = customer.email || '';
         document.getElementById('address').value = customer.address || '';
         document.getElementById('city').value = customer.city || '';
+        document.getElementById('nic').value = customer.nic || '';
         document.getElementById('isActive').value = customer.isActive ? 'true' : 'false';
 
         // Readonly fields
@@ -371,8 +372,6 @@ async function editCustomer(customerId) {
 
         // Profile data
         if (profile) {
-            document.getElementById('gender').value = profile.gender || '';
-            document.getElementById('dateOfBirth').value = profile.dateOfBirth || '';
             document.getElementById('preferredContactMethod').value = profile.preferredContactMethod || 'PHONE';
             document.getElementById('notes').value = profile.notes || '';
         }
@@ -441,18 +440,16 @@ function getCustomerFormData() {
         email: document.getElementById('email').value.trim() || null,
         address: document.getElementById('address').value.trim() || null,
         city: document.getElementById('city').value.trim() || null,
+        nic: document.getElementById('nic').value.trim() || null,
         isActive: document.getElementById('isActive').value === 'true'
     };
 }
 
 // Get profile form data
 function getProfileFormData() {
-    const gender = document.getElementById('gender').value;
     const preferredContactMethod = document.getElementById('preferredContactMethod').value;
 
     return {
-        dateOfBirth: document.getElementById('dateOfBirth').value || null,
-        gender: gender || null,
         preferredContactMethod: preferredContactMethod || 'PHONE',
         notes: document.getElementById('notes').value.trim() || null
     };

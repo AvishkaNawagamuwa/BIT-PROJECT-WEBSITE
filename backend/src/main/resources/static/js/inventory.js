@@ -456,7 +456,7 @@ function updateBrandDropdowns() {
     const dropdown = document.getElementById('productBrand');
     if (dropdown) {
         dropdown.innerHTML = '<option value="">Select Brand (Optional)</option>';
-        
+
         brands.forEach(brand => {
             const option = document.createElement('option');
             option.value = brand.brandId;
@@ -601,7 +601,7 @@ function updateUnitDropdowns() {
     const dropdown = document.getElementById('productUnit');
     if (dropdown) {
         dropdown.innerHTML = '<option value="">Select Unit</option>';
-        
+
         units.forEach(unit => {
             const option = document.createElement('option');
             option.value = unit.unitId;

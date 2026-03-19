@@ -4,6 +4,7 @@ import com.sampathgrocery.entity.product.ProductBatch;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,6 +22,12 @@ public class ProductBatchRequest {
 
     @NotBlank(message = "Batch code is required")
     private String batchCode;
+
+    /**
+     * Product barcode for identification
+     */
+    @Size(max = 100, message = "Barcode cannot exceed 100 characters")
+    private String barcode;
 
     @NotNull(message = "Product is required")
     private Integer productId;

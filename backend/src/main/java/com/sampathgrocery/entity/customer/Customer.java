@@ -60,6 +60,10 @@ public class Customer {
     @Column(name = "email", unique = true, length = 100)
     private String email;
 
+    @Size(max = 20, message = "NIC cannot exceed 20 characters")
+    @Column(name = "nic", unique = true, length = 20)
+    private String nic;
+
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
@@ -115,7 +119,7 @@ public class Customer {
     }
 
     /**
-     * Calculate and update loyalty tier based on points
+     * Calculate and update loyalty tier based on current points
      */
     public void calculateLoyaltyTier() {
         if (loyaltyPoints >= 3000) {

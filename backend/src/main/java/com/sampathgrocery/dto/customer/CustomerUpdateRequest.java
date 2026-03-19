@@ -33,4 +33,7 @@ public class CustomerUpdateRequest {
     private String city;
 
     private Boolean isActive;
+
+    @Size(max = 20, message = "NIC cannot exceed 20 characters")
+    private String nic;
 }

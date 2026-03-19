@@ -285,18 +285,10 @@
                                 <input type="text" class="form-control input-element" id="fullName" required
                                     placeholder="Enter full name">
                             </div>
-                            <div class="col-md-3">
-                                <label for="gender" class="form-label">Gender</label>
-                                <select class="form-select input-element" id="gender">
-                                    <option value="">Select Gender</option>
-                                    <option value="MALE">Male</option>
-                                    <option value="FEMALE">Female</option>
-                                    <option value="OTHER">Other</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="dateOfBirth" class="form-label">Date of Birth</label>
-                                <input type="date" class="form-control input-element" id="dateOfBirth">
+                            <div class="col-md-6">
+                                <label for="nic" class="form-label">NIC</label>
+                                <input type="text" class="form-control input-element" id="nic"
+                                    placeholder="Enter NIC number" maxlength="20">
                             </div>
                         </div>
 
@@ -480,15 +472,12 @@
     <!-- Customer Profile View Modal -->
     <div class="modal fade" id="modalCustomerProfile" tabindex="-1" aria-labelledby="modalCustomerProfileLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title" id="modalCustomerProfileLabel">
-                        <i class="fas fa-user-circle me-2"></i><span id="profileCustomerName">Customer Profile</span>
-                        <span class="badge bg-warning ms-2" id="profileLoyaltyBadge" style="display: none;">
-                            <i class="fas fa-star me-1"></i>Loyalty Member
-                        </span>
-                    </h3>
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalCustomerProfileLabel">
+                        <i class="fas fa-user-circle me-2"></i>Customer Profile
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>

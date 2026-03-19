@@ -1,8 +1,10 @@
 package com.sampathgrocery.controller.api;
+
 import com.sampathgrocery.dto.common.ApiResponse;
 import com.sampathgrocery.dto.product.ProductBatchRequest;
 import com.sampathgrocery.dto.product.ProductBatchResponse;
 import com.sampathgrocery.entity.product.ProductBatch.BatchStatus;
+import com.sampathgrocery.exception.InsufficientStockException;
 import com.sampathgrocery.service.product.ProductBatchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -102,5 +104,75 @@ public class ProductBatchController {
     public ResponseEntity<ApiResponse<Double>> getTotalStockValue() {
         Double value = batchService.getTotalStockValue();
         return ResponseEntity.ok(ApiResponse.success(value));
+    }
+
+    // ===================================
+    // BARCODE ENDPOINTS - NEW METHODS
+    // ===================================
+
+    /**
+     * Get batch details by barcode
+     * Returns the active batch with earliest expiry date
+     */
+    @GetMapping("/barcode/{barcode}")
+    public ResponseEntity<ApiResponse<ProductBatchResponse>> getBatchByBarcode(
+            @PathVariable String barcode) {
+        ProductBatchResponse batch = batchService.getBatchByBarcode(barcode);
+        return ResponseEntity.ok(ApiResponse.success(batch));
+    }
+
+    /**
+     * Get pricing information by barcode
+     * Used for POS/Sales to quickly get unit price, product name, etc.
+     */
+    @GetMapping("/barcode/{barcode}/pricing")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPricingByBarcode(
+            @PathVariable String barcode) {
+        Map<String, Object> pricing = batchService.getPricingByBarcode(barcode);
+        return ResponseEntity.ok(ApiResponse.success("Pricing information retrieved", pricing));
+    }
+
+    /**
+     * Get all active batches for a barcode (FIFO ordered)
+     * Returns all available batches for a product identified by barcode
+     */
+    @GetMapping("/barcode/{barcode}/all")
+    public ResponseEntity<ApiResponse<List<ProductBatchResponse>>> getAllBatchesByBarcode(
+            @PathVariable String barcode) {
+        List<ProductBatchResponse> batches = batchService.getAllBatchesByBarcode(barcode);
+        return ResponseEntity.ok(ApiResponse.success(batches));
+    }
+
+    /**
+     * Deduct stock using barcode (FIFO)
+     * Used for sales/POS - identifies product by barcode and deducts stock
+     */
+    @PostMapping("/barcode/{barcode}/deduct-stock")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deductStockByBarcode(
+            @PathVariable String barcode,
+            @RequestBody Map<String, Object> payload) {
+
+        Integer quantity = (Integer) payload.get("quantity");
+        String referenceNumber = (String) payload.getOrDefault("referenceNumber", "MANUAL");
+
+        if (quantity == null || quantity <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Quantity must be greater than 0"));
+        }
+
+        try {
+            batchService.deductStockByBarcodeFIFO(barcode, quantity, referenceNumber, CURRENT_USER_ID);
+
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put("barcode", barcode);
+            result.put("quantityDeducted", quantity);
+            result.put("referenceNumber", referenceNumber);
+            result.put("message", "Stock deducted successfully using barcode");
+
+            return ResponseEntity.ok(ApiResponse.success("Stock deducted successfully", result));
+        } catch (InsufficientStockException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

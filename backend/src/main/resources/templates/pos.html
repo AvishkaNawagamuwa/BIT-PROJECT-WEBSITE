@@ -26,71 +26,151 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
     <!-- SweetAlert2 CSS - සුන්දර alerts සඳහා -->
-    <link rel="stylesheet" href="/assets/sweetalert2/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.1/dist/sweetalert2.min.css">
 
     <!-- Custom CSS - අපේ විශේෂ styles -->
     <link rel="stylesheet" href="/css/common.css">
     <style>
         /* POS Specific Styles */
         .pos-body {
-            display: flex;
+            display: grid;
+            grid-template-columns: 70% 30%;
             gap: 15px;
             margin-bottom: 20px;
+            align-items: start;
         }
 
-        /* Left Panel - Product Search */
+        /* Left Panel - Barcode + Cart (Column 1) */
         .left-panel {
-            width: 30%;
+            grid-column: 1;
+            grid-row: 1 / 3;
+            width: 100%;
         }
 
-        /* Center Panel - Cart */
+        /* Center Panel - HIDDEN (removed from layout) */
         .center-panel {
-            flex: 1;
+            display: none;
         }
 
-        /* Right Panel - Customer & Payment */
+        /* Right Panel - Customer & Payment (Column 2) */
         .right-panel {
-            width: 28%;
+            grid-column: 2;
+            grid-row: 1 / 3;
+            width: 100%;
         }
 
         .panel-card {
-            height: calc(100vh - 250px);
             display: flex;
             flex-direction: column;
+            height: auto;
         }
 
         .panel-card .card-body {
-            flex: 1;
-            overflow-y: auto;
+            overflow-y: visible;
+            padding: 12px;
         }
 
         .barcode-input {
-            font-size: 20px;
-            height: 50px;
+            font-size: 18px;
+            height: 40px;
             text-align: center;
             font-weight: bold;
+            padding: 8px;
         }
 
         .quick-add-btn {
-            height: 70px;
-            font-size: 13px;
-            margin-bottom: 8px;
+            height: 50px;
+            font-size: 11px;
+            margin-bottom: 5px;
+            padding: 6px 4px;
         }
 
         .cart-table {
-            max-height: calc(100vh - 550px);
-            overflow-y: auto;
+            overflow: visible;
+            margin-bottom: 0;
+            margin-top: 10px;
+        }
+
+        .cart-table table {
+            margin-bottom: 0;
+            font-size: 11px;
+        }
+
+        .cart-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .cart-table thead th {
+            padding: 8px 4px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #22C55E;
+            color: white;
+            text-align: center;
+            white-space: nowrap;
+            border: none;
+        }
+
+        .cart-table thead th:first-child {
+            text-align: center;
+        }
+
+        .cart-table tbody td {
+            padding: 6px 4px;
+            vertical-align: middle;
+            font-size: 11px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .cart-table tbody td:nth-child(2) {
+            text-align: left;
+        }
+
+        .cart-table tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        /* Adjust table width column styling */
+        .cart-table table tbody tr td:nth-child(1) {
+            width: 4%;
+        }
+
+        .cart-table table tbody tr td:nth-child(2) {
+            width: 28%;
+        }
+
+        .cart-table table tbody tr td:nth-child(3) {
+            width: 12%;
+        }
+
+        .cart-table table tbody tr td:nth-child(4) {
+            width: 15%;
+        }
+
+        .cart-table table tbody tr td:nth-child(5) {
+            width: 18%;
+        }
+
+        .cart-table table tbody tr td:nth-child(6) {
+            width: 15%;
+        }
+
+        .cart-table table tbody tr td:nth-child(7) {
+            width: 8%;
         }
 
         .cart-summary {
-            margin-top: 15px;
-            padding: 15px;
+            margin-top: 10px;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 8px;
         }
 
         .grand-total {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #28a745;
         }
@@ -98,31 +178,57 @@
         .qty-control {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 3px;
         }
 
         .qty-control button {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             padding: 0;
-            font-size: 12px;
+            font-size: 10px;
+            line-height: 1;
         }
 
         .qty-control input {
-            width: 50px;
+            width: 40px;
             text-align: center;
-            height: 28px;
-            padding: 0;
-            font-size: 13px;
+            height: 24px;
+            padding: 2px 4px;
+            font-size: 11px;
         }
 
         .payment-method-card {
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 6px 8px;
+            margin-bottom: 0;
             cursor: pointer;
             transition: all 0.2s;
+            flex: 1;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .payment-methods-container {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .payment-method-card .form-check {
+            margin: 0;
+        }
+
+        .payment-method-card .form-check-input {
+            width: 14px;
+            height: 14px;
+            margin-right: 4px;
+        }
+
+        .payment-method-card .form-check-label {
+            font-size: 11px;
+            margin-bottom: 0;
         }
 
         .payment-method-card:hover {
@@ -133,29 +239,32 @@
         .payment-method-card.active {
             border-color: #22C55E;
             background: #e7f9ef;
+            border-width: 2px;
         }
 
         .customer-info-box {
             background: #e7f9ef;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
+            font-size: 12px;
         }
 
         .section-title {
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 12px;
+            font-weight: 600;
             color: #16A34A;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #22C55E;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e0f2e6;
         }
 
         .product-search-result {
             cursor: pointer;
-            padding: 8px;
+            padding: 6px;
             border-bottom: 1px solid #dee2e6;
             transition: all 0.2s;
+            font-size: 12px;
         }
 
         .product-search-result:hover {
@@ -176,6 +285,124 @@
         .info-badge {
             font-size: 13px;
             padding: 6px 12px;
+        }
+
+        /* Optimized spacing for compact layout */
+        .panel-card .card-header {
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .panel-card .card-header h5 {
+            font-size: 14px;
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        .panel-card .card-body {
+            padding: 10px 12px;
+            overflow-y: visible;
+        }
+
+        .form-label {
+            margin-bottom: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .form-control,
+        .form-select {
+            font-size: 11px;
+            padding: 5px 6px;
+            height: auto;
+            margin-bottom: 4px;
+        }
+
+        .form-check {
+            margin-bottom: 3px;
+        }
+
+        .form-check-label {
+            font-size: 12px;
+            margin-bottom: 0;
+        }
+
+        .btn-sm {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+
+        .customer-info-box {
+            background: #e7f9ef;
+            padding: 6px 8px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+
+        .customer-info-box h6 {
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+
+        .customer-info-box .badge {
+            font-size: 9px;
+            padding: 2px 6px;
+        }
+
+        /* Discount section spacing */
+        .btn-group {
+            margin-bottom: 0;
+        }
+
+        .btn-group .btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .input-group-sm>.form-control {
+            height: 28px;
+            font-size: 12px;
+        }
+
+        .input-group-text {
+            padding: 2px 8px;
+            font-size: 11px;
+        }
+
+        /* Remove extra margins from cart summary */
+        .cart-summary>.row {
+            margin-bottom: 8px;
+        }
+
+        .cart-summary h6 {
+            font-size: 12px;
+            margin-bottom: 0;
+        }
+
+        .cart-summary h5 {
+            font-size: 13px;
+            margin-bottom: 0;
+        }
+
+        .cart-summary h4 {
+            font-size: 18px;
+            margin-bottom: 0;
+        }
+
+        hr {
+            margin: 6px 0;
+        }
+
+        /* Compact action button group */
+        .right-panel .d-grid {
+            gap: 4px;
+        }
+
+        .right-panel .btn {
+            padding: 6px 8px;
+            font-size: 11px;
         }
     </style>
 </head>
@@ -270,12 +497,13 @@
 
             <!-- POS Body - 3 Panels -->
             <div class="pos-body">
-                <!-- LEFT PANEL - Product Search & Add -->
+                <!-- LEFT PANEL - Barcode Input + Shopping Cart (MERGED) -->
                 <div class="left-panel">
+                    <!-- Barcode Scanner Card -->
                     <div class="card panel-card">
                         <div class="card-header">
                             <h5 class="mb-0">
-                                <i class="fas fa-search me-2"></i>Product Search
+                                <i class="fas fa-search me-2"></i>Scan & Cart
                             </h5>
                         </div>
                         <div class="card-body">
@@ -284,142 +512,86 @@
                                 <label class="form-label fw-bold">Scan Barcode</label>
                                 <input type="text" class="form-control barcode-input" id="barcodeInput"
                                     placeholder="Scan or Type Barcode" autofocus>
-                                <small class="text-muted">Auto-focus enabled. Press Enter to add.</small>
+                                <small class="text-muted d-block" style="font-size: 10px;">Press Enter to add</small>
                             </div>
 
-                            <!-- Manual Product Search -->
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">OR Search Product</label>
-                                <input type="text" class="form-control" id="productSearch"
-                                    placeholder="Search by product name...">
-                                <div id="productSearchResults" class="mt-2"
-                                    style="max-height: 180px; overflow-y: auto;">
-                                    <!-- Search results will appear here -->
+                            <!-- Shopping Cart Section -->
+                            <div>
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h6 class="mb-0" style="font-size: 13px; font-weight: bold;">
+                                        <i class="fas fa-shopping-cart me-1"></i>Items
+                                    </h6>
+                                    <span class="badge bg-primary" id="cartItemCount" style="font-size: 11px;">0
+                                        items</span>
                                 </div>
-                            </div>
 
-                            <!-- Quick Add Buttons -->
-                            <div class="section-title mt-4">
-                                <i class="fas fa-bolt me-2"></i>Quick Add
-                            </div>
-                            <div class="row g-2" id="quickAddButtons">
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="bread">
-                                        <i class="fas fa-bread-slice d-block mb-1"></i>
-                                        Bread
-                                    </button>
+                                <!-- Cart Table -->
+                                <div class="cart-table">
+                                    <table class="table table-hover table-sm">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th style="width: 4%; padding: 6px 4px; font-size: 11px;">#</th>
+                                                <th style="width: 28%; padding: 6px 4px; font-size: 11px;">Product</th>
+                                                <th style="width: 12%; padding: 6px 4px; font-size: 11px;">Batch</th>
+                                                <th style="width: 15%; padding: 6px 4px; font-size: 11px;">Price</th>
+                                                <th style="width: 18%; padding: 6px 4px; font-size: 11px;">Qty</th>
+                                                <th style="width: 15%; padding: 6px 4px; font-size: 11px;">Subtotal</th>
+                                                <th style="width: 8%; padding: 6px 4px; font-size: 11px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cartTableBody">
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted py-3"
+                                                    style="font-size: 12px;">
+                                                    <i class="fas fa-shopping-cart fa-2x mb-2 d-block"></i>
+                                                    Cart is empty
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="milk">
-                                        <i class="fas fa-glass-whiskey d-block mb-1"></i>
-                                        Milk
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="eggs">
-                                        <i class="fas fa-egg d-block mb-1"></i>
-                                        Eggs
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="rice">
-                                        <i class="fas fa-seedling d-block mb-1"></i>
-                                        Rice
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="water">
-                                        <i class="fas fa-tint d-block mb-1"></i>
-                                        Water
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-primary quick-add-btn w-100" data-product="sugar">
-                                        <i class="fas fa-cube d-block mb-1"></i>
-                                        Sugar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- CENTER PANEL - Shopping Cart -->
-                <div class="center-panel">
-                    <div class="card panel-card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-shopping-cart me-2"></i>Shopping Cart
-                                </h5>
-                                <span class="badge bg-primary" id="cartItemCount">0 items</span>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <!-- Cart Table -->
-                            <div class="cart-table">
-                                <table class="table table-hover table-sm">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th style="width: 5%;">#</th>
-                                            <th style="width: 30%;">Product</th>
-                                            <th style="width: 15%;">Batch</th>
-                                            <th style="width: 12%;">Unit Price</th>
-                                            <th style="width: 20%;">Quantity</th>
-                                            <th style="width: 13%;">Subtotal</th>
-                                            <th style="width: 5%;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cartTableBody">
-                                        <tr>
-                                            <td colspan="7" class="text-center text-muted py-5">
-                                                <i class="fas fa-shopping-cart fa-3x mb-3 d-block"></i>
-                                                <h5>Cart is empty</h5>
-                                                <p>Start scanning products or use quick add buttons</p>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Cart Summary -->
-                            <div class="cart-summary">
-                                <div class="row mb-2">
-                                    <div class="col-6">
-                                        <h6>Subtotal:</h6>
-                                    </div>
-                                    <div class="col-6 text-end">
-                                        <h6 id="cartSubtotal">Rs. 0.00</h6>
-                                    </div>
-                                </div>
-                                <div class="row mb-2">
-                                    <div class="col-6">
-                                        <label class="form-label">Discount:</label>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <input type="radio" class="btn-check" name="discountType"
-                                                id="discountPercent" value="percent" checked>
-                                            <label class="btn btn-outline-secondary" for="discountPercent">%</label>
-                                            <input type="radio" class="btn-check" name="discountType" id="discountFixed"
-                                                value="fixed">
-                                            <label class="btn btn-outline-secondary" for="discountFixed">Rs.</label>
+                                <!-- Cart Summary -->
+                                <div class="cart-summary">
+                                    <div class="row d-flex align-items-center" style="margin-bottom: 6px;">
+                                        <div class="col-6">
+                                            <h6 style="font-size: 12px; margin: 0;">Subtotal:</h6>
+                                        </div>
+                                        <div class="col-6 text-end">
+                                            <h6 id="cartSubtotal" style="font-size: 12px; margin: 0;">Rs. 0.00</h6>
                                         </div>
                                     </div>
-                                    <div class="col-6">
+                                    <div style="margin-bottom: 6px;">
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                            <label class="form-label"
+                                                style="margin: 0; min-width: 70px; font-size: 12px;">Discount:</label>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <input type="radio" class="btn-check" name="discountType"
+                                                    id="discountPercent" value="percent" checked>
+                                                <label class="btn btn-outline-secondary" for="discountPercent">%</label>
+                                                <input type="radio" class="btn-check" name="discountType"
+                                                    id="discountFixed" value="fixed">
+                                                <label class="btn btn-outline-secondary" for="discountFixed">Rs.</label>
+                                            </div>
+                                        </div>
                                         <div class="input-group input-group-sm">
                                             <input type="number" class="form-control text-end" id="discountValue"
-                                                value="0" min="0" step="0.01">
-                                            <span class="input-group-text text-danger fw-bold">-<span
-                                                    id="discountAmount">0.00</span></span>
+                                                value="0" min="0" step="0.01" style="font-size: 11px;">
+                                            <span class="input-group-text text-danger fw-bold"
+                                                style="font-size: 11px;">-<span id="discountAmount">0.00</span></span>
                                         </div>
                                     </div>
-                                </div>
-                                <hr>
-                                <div class="row">
-                                    <div class="col-6">
-                                        <h5 class="text-success">Grand Total:</h5>
-                                    </div>
-                                    <div class="col-6 text-end">
-                                        <h4 class="grand-total" id="cartGrandTotal">Rs. 0.00</h4>
+                                    <hr style="margin: 6px 0;">
+                                    <div class="row d-flex align-items-center">
+                                        <div class="col-6">
+                                            <h5 class="text-success" style="font-size: 13px; margin: 0;">Grand Total:
+                                            </h5>
+                                        </div>
+                                        <div class="col-6 text-end">
+                                            <h4 class="grand-total" id="cartGrandTotal"
+                                                style="font-size: 18px; margin: 0;">Rs. 0.00</h4>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -436,131 +608,171 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <!-- Customer Section -->
-                            <div class="section-title">
-                                Customer Information
-                            </div>
-
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="walkInCustomer" checked>
-                                    <label class="form-check-label fw-bold" for="walkInCustomer">
-                                        Walk-in Customer
-                                    </label>
+                            <!-- Customer Type Selection -->
+                            <div class="row g-1 mb-2">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="customerType"
+                                            id="walkinCustomer" value="walkin" checked
+                                            onchange="handleCustomerTypeChange(this.value)">
+                                        <label class="form-check-label" for="walkinCustomer">
+                                            Walk-in
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="customerType"
+                                            id="registeredCustomer" value="registered"
+                                            onchange="handleCustomerTypeChange(this.value)">
+                                        <label class="form-check-label" for="registeredCustomer">
+                                            Registered
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div id="customerSearchSection" style="display: none;">
-                                <div class="input-group mb-3 input-group-sm">
+                            <!-- Registered Customer Search -->
+                            <div id="registeredCustomerSection" style="display: none; margin-bottom: 6px;">
+                                <div class="input-group input-group-sm mb-2">
                                     <input type="text" class="form-control" id="customerSearchInput"
-                                        placeholder="Search by phone or name">
-                                    <button class="btn btn-outline-primary" type="button" onclick="searchCustomer()">
+                                        placeholder="Phone/Card#" style="font-size: 11px;">
+                                    <button class="btn btn-outline-primary btn-sm" type="button"
+                                        onclick="searchCustomer()" style="padding: 4px 8px;">
                                         <i class="fas fa-search"></i>
                                     </button>
                                 </div>
 
                                 <div id="selectedCustomerInfo" class="customer-info-box" style="display: none;">
-                                    <div class="d-flex justify-content-between align-items-start">
+                                    <div class="d-flex justify-content-between gap-1">
                                         <div>
-                                            <h6 class="mb-1" id="customerName">Customer Name</h6>
-                                            <small class="text-muted" id="customerPhone">Phone Number</small>
-                                            <div class="mt-2">
-                                                <span class="badge bg-warning text-dark" id="loyaltyBadge">
-                                                    <i class="fas fa-star me-1"></i>Loyalty
-                                                </span>
-                                                <div class="mt-1">
-                                                    <small>Points: <strong id="loyaltyPoints">0</strong></small>
-                                                </div>
-                                            </div>
+                                            <h6 class="mb-0" id="customerName">Customer</h6>
+                                            <small class="text-muted" id="customerPhone">Phone</small>
+                                            <br>
+                                            <small>Points: <strong id="availableLoyaltyPoints">0</strong></small>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="clearCustomer()">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="clearCustomer()"
+                                            style="padding: 2px 4px; font-size: 10px;">
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
                                 </div>
 
-                                <button class="btn btn-outline-success btn-sm w-100 mb-3" data-bs-toggle="modal"
-                                    data-bs-target="#addCustomerModal">
-                                    <i class="fas fa-user-plus me-2"></i>Add New Customer
+                                <button class="btn btn-outline-success btn-sm w-100 mb-2" data-bs-toggle="modal"
+                                    data-bs-target="#addCustomerModal" style="font-size: 11px;">
+                                    <i class="fas fa-user-plus me-1"></i>Add New
                                 </button>
                             </div>
 
                             <hr>
 
-                            <!-- Payment Method Section -->
-                            <div class="section-title">
-                                Payment Method
-                            </div>
+                            <!-- Payment Methods - Horizontal Layout -->
+                            <div class="section-title">Payment Method</div>
 
-                            <div class="payment-method-card active" data-method="cash">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="paymentMethod" id="paymentCash"
-                                        value="cash" checked>
-                                    <label class="form-check-label fw-bold" for="paymentCash">
-                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>Cash
-                                    </label>
+                            <div class="payment-methods-container">
+                                <div class="payment-method-card active" data-method="cash">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="paymentMethod"
+                                            id="paymentCash" value="cash" checked>
+                                        <label class="form-check-label" for="paymentCash">
+                                            <i class="fas fa-money-bill text-success"></i> Cash
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="payment-method-card" data-method="card">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="paymentMethod"
+                                            id="paymentCard" value="card">
+                                        <label class="form-check-label" for="paymentCard">
+                                            <i class="fas fa-credit-card text-primary"></i> Card
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="payment-method-card" data-method="credit">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="paymentMethod"
+                                            id="paymentCredit" value="credit">
+                                        <label class="form-check-label" for="paymentCredit">
+                                            <i class="fas fa-handshake text-warning"></i> Credit
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="payment-method-card" data-method="loyalty">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="paymentMethod"
+                                            id="paymentLoyalty" value="loyalty" disabled>
+                                        <label class="form-check-label" for="paymentLoyalty">
+                                            <i class="fas fa-gift text-danger"></i> Loyalty
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div id="cashPaymentSection" class="mb-3">
-                                <label class="form-label">Amount Tendered</label>
-                                <input type="number" class="form-control text-end" id="amountTendered"
-                                    placeholder="0.00" step="0.01">
-                                <div class="alert alert-info mt-2 py-2" id="changeAmount" style="display: none;">
-                                    <small><strong>Change: Rs. <span id="changeValue">0.00</span></strong></small>
+                            <!-- Loyalty Points Usage -->
+                            <div id="loyaltyPointsSection" style="display: none; margin-bottom: 6px;">
+                                <label class="form-label">Use Points</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control text-end" id="loyaltyPointsUsed"
+                                        placeholder="0" min="0" step="1" style="font-size: 11px;">
+                                    <span class="input-group-text" style="font-size: 11px; padding: 4px 6px;">
+                                        Avail: <span id="maxLoyaltyPoints">0</span>
+                                    </span>
+                                </div>
+                                <small class="text-muted d-block" style="font-size: 10px;">Payable: Rs. <span
+                                        id="payableAmount">0.00</span></small>
+                            </div>
+
+                            <!-- Payment Details - Compact -->
+                            <div id="cashPaymentSection" style="margin-bottom: 6px;">
+                                <label class="form-label">Amount</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text" style="font-size: 11px; padding: 4px 6px;">Rs.</span>
+                                    <input type="number" class="form-control text-end" id="amountTendered"
+                                        placeholder="0.00" step="0.01" style="font-size: 11px; padding: 4px 6px;">
+                                </div>
+                                <div class="alert alert-info mt-1 py-1" id="changeAmount"
+                                    style="display: none; font-size: 10px; margin-bottom: 0;">
+                                    Change: Rs. <span id="changeValue">0.00</span>
                                 </div>
                             </div>
 
-                            <div class="payment-method-card" data-method="card">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="paymentMethod" id="paymentCard"
-                                        value="card">
-                                    <label class="form-check-label fw-bold" for="paymentCard">
-                                        <i class="fas fa-credit-card me-2 text-primary"></i>Card
-                                    </label>
+                            <div id="cardPaymentSection" class="mb-2" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Last 4</label>
+                                        <input type="text" class="form-control form-control-sm" id="cardNumber"
+                                            placeholder="****" maxlength="4" style="font-size: 11px;">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Ref</label>
+                                        <input type="text" class="form-control form-control-sm" id="transactionRef"
+                                            placeholder="Ref" style="font-size: 11px;">
+                                    </div>
                                 </div>
                             </div>
 
-                            <div id="cardPaymentSection" class="mb-3" style="display: none;">
-                                <label class="form-label">Last 4 Digits</label>
-                                <input type="text" class="form-control" id="cardNumber" placeholder="****"
-                                    maxlength="4">
-                                <label class="form-label mt-2">Transaction Ref</label>
-                                <input type="text" class="form-control" id="transactionRef" placeholder="Reference">
-                            </div>
-
-                            <div class="payment-method-card" data-method="credit">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="paymentMethod" id="paymentCredit"
-                                        value="credit">
-                                    <label class="form-check-label fw-bold" for="paymentCredit">
-                                        <i class="fas fa-handshake me-2 text-warning"></i>Credit
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="payment-method-card" data-method="loyalty">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="paymentMethod"
-                                        id="paymentLoyalty" value="loyalty">
-                                    <label class="form-check-label fw-bold" for="paymentLoyalty">
-                                        <i class="fas fa-gift me-2 text-danger"></i>Loyalty Points
-                                    </label>
-                                </div>
+                            <div id="creditPaymentSection" style="display: none; margin-bottom: 6px;">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control form-control-sm" id="creditDueDate"
+                                    style="font-size: 11px;">
                             </div>
 
                             <hr>
 
-                            <!-- Action Buttons -->
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-outline-danger" onclick="clearCart()">
-                                    <i class="fas fa-trash me-2"></i>Clear Cart
+                            <!-- Action Buttons - Compact -->
+                            <div class="d-grid gap-1">
+                                <button class="btn btn-outline-danger btn-sm" onclick="clearCart()">
+                                    <i class="fas fa-trash me-1"></i>Clear
                                 </button>
-                                <button class="btn btn-outline-warning" onclick="holdSale()">
-                                    <i class="fas fa-pause me-2"></i>Hold Sale
+                                <button class="btn btn-outline-warning btn-sm" onclick="holdSale()">
+                                    <i class="fas fa-pause me-1"></i>Hold
                                 </button>
-                                <button class="btn btn-success btn-lg" onclick="processPayment()">
-                                    <i class="fas fa-check-circle me-2"></i>PROCESS PAYMENT
+                                <button class="btn btn-success btn-sm" onclick="processPayment()"
+                                    style="font-weight: 600; padding: 6px 8px; font-size: 12px;">
+                                    <i class="fas fa-check-circle me-1"></i>PAYMENT
                                 </button>
                             </div>
                         </div>
@@ -615,7 +827,7 @@
     <!-- Bootstrap JS -->
     <script src="/assets/bootstrap-5.3.7/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 JS -->
-    <script src="/assets/sweetalert2/sweetalert2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.1/dist/sweetalert2.all.min.js"></script>
     <!-- Common JS -->
     <script src="/js/common.js"></script>
     <!-- POS JS -->

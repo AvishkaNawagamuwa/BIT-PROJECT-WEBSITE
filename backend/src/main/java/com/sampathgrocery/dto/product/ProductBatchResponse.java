@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 public class ProductBatchResponse {
     private Integer batchId;
     private String batchCode;
+    private String barcode;
     private Integer productId;
     private String productName;
     private String productCode;

@@ -23,6 +23,7 @@ public class CustomerResponse {
     private String email;
     private String address;
     private String city;
+    private String nic;
     private String loyaltyCardNumber;
     private Integer loyaltyPoints;
     private String loyaltyTier;

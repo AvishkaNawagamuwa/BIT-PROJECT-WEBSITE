@@ -54,6 +54,10 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     boolean existsByCustomerCode(String customerCode);
 
+    boolean existsByNic(String nic);
+
+    Optional<Customer> findByNic(String nic);
+
     @Query("SELECT MAX(c.customerCode) FROM Customer c WHERE c.customerCode LIKE 'CUST-%'")
     String findLatestCustomerCode();
 }

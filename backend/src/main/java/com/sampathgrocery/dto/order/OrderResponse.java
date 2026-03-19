@@ -31,7 +31,10 @@ public class OrderResponse {
     private BigDecimal loyaltyDiscountAmount;
     private BigDecimal grandTotal;
     private Integer loyaltyPointsEarned;
-    private String notes;
+    private String fulfillmentType;
+    private String deliveryAddress;
+    private String deliveryCity;
+    private String deliveryPhone;
     private LocalDateTime createdAt;
     private String createdBy;
 }

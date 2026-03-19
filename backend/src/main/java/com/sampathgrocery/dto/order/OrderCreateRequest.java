@@ -30,6 +30,13 @@ public class OrderCreateRequest {
     private BigDecimal taxAmount;
     private BigDecimal deliveryCharge;
     private Integer loyaltyPointsUsed;
-    private String discountCode; // Optional discount coupon code
-    private String notes;
+
+    // Fulfillment Type fields
+    @NotNull(message = "Fulfillment type is required")
+    private String fulfillmentType; // PICKUP or DELIVERY
+
+    // Delivery address fields (required only if fulfillmentType is DELIVERY)
+    private String deliveryAddress;
+    private String deliveryCity;
+    private String deliveryPhone;
 }

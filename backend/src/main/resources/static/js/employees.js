@@ -681,7 +681,7 @@ function animateValue(id, start, end, duration) {
 function setupSearchHandler() {
     const searchInput = document.getElementById('employeeSearch');
     if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function (e) {
             filterEmployees(e.target.value);
         });
     }
@@ -693,14 +693,14 @@ function setupSearchHandler() {
 function filterEmployees(query) {
     const tbody = document.getElementById('employeesTableBody');
     const rows = tbody.getElementsByTagName('tr');
-    
+
     const searchLower = query.toLowerCase();
     let visibleCount = 0;
-    
+
     for (let row of rows) {
         // Skip empty state rows
         if (row.classList.contains('empty-state')) continue;
-        
+
         const text = row.textContent.toLowerCase();
         if (text.includes(searchLower)) {
             row.style.display = '';
@@ -709,7 +709,7 @@ function filterEmployees(query) {
             row.style.display = 'none';
         }
     }
-    
+
     // Update counter based on visible rows
     const employeeCount = document.getElementById('employeeCount');
     if (employeeCount) {
@@ -726,7 +726,7 @@ function clearSearch() {
         searchInput.value = '';
         filterEmployees('');
     }
-    
+
     // Restore original count
     fetchEmployees();
 }

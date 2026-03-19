@@ -111,7 +111,8 @@ public class GRNService {
             GRNItem item = new GRNItem();
             item.setGrn(grn);
             item.setProduct(product);
-            // Generate unique batch code sequentially to avoid duplicates in same transaction
+            // Generate unique batch code sequentially to avoid duplicates in same
+            // transaction
             if (itemReq.getBatchCode() != null && !itemReq.getBatchCode().trim().isEmpty()) {
                 item.setBatchCode(itemReq.getBatchCode());
             } else {
@@ -216,6 +217,8 @@ public class GRNService {
             // Create ProductBatch
             ProductBatch batch = new ProductBatch();
             batch.setBatchCode(grnItem.getBatchCode());
+            // Auto-generate barcode for batch
+            batch.setBarcode(CodeGenerator.generateBarcode());
             batch.setProduct(grnItem.getProduct());
             batch.setGrn(grn);
             batch.setGrnItem(grnItem);
@@ -484,7 +487,7 @@ public class GRNService {
 
         // Get initial batch code counter for sequential generation
         String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
-        final int[] batchCounter = {1}; // Use array to allow modification in lambda
+        final int[] batchCounter = { 1 }; // Use array to allow modification in lambda
         if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
             try {
                 batchCounter[0] = Integer.parseInt(lastBatchCode.substring(6)) + 1;
@@ -574,7 +577,7 @@ public class GRNService {
 
         // Get initial batch code counter for sequential generation
         String lastBatchCode = productBatchRepository.findLastBatchCode().orElse(null);
-        final int[] batchCounter = {1}; // Use array to allow modification in lambda
+        final int[] batchCounter = { 1 }; // Use array to allow modification in lambda
         if (lastBatchCode != null && lastBatchCode.startsWith("BATCH-")) {
             try {
                 batchCounter[0] = Integer.parseInt(lastBatchCode.substring(6)) + 1;
@@ -695,7 +698,8 @@ public class GRNService {
             grnItem.setFinalPurchasePrice(itemReq.getFinalPurchasePrice());
             grnItem.setSellingPrice(itemReq.getSellingPrice());
             grnItem.setExpiryDate(itemReq.getExpiryDate());
-            // Generate unique batch code sequentially to avoid duplicates in same transaction
+            // Generate unique batch code sequentially to avoid duplicates in same
+            // transaction
             if (itemReq.getBatchCode() != null && !itemReq.getBatchCode().trim().isEmpty()) {
                 grnItem.setBatchCode(itemReq.getBatchCode());
             } else {
@@ -711,6 +715,8 @@ public class GRNService {
             ProductBatch batch = new ProductBatch();
             batch.setProduct(product);
             batch.setBatchCode(grnItem.getBatchCode());
+            // Auto-generate barcode for batch
+            batch.setBarcode(CodeGenerator.generateBarcode());
             batch.setReceivedQuantity(itemReq.getReceivedQuantity());
             batch.setStockQuantity(itemReq.getReceivedQuantity());
             batch.setPurchasePrice(itemReq.getFinalPurchasePrice());

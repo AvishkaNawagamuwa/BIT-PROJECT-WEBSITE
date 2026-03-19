@@ -1,46 +1,148 @@
-// Order Management JavaScript - Backend Integration
+// Order Management with Barcode Scanning - New Implementation
 
 // Global Variables
 let orders = [];
 let customers = [];
-let productBatches = [];
-let orderStatuses = [];
-let editingOrderId = null;
+let cartItems = [];
+let selectedCustomer = null;
+let currentBarcodes = {};
+let activeTab = 'WALK_IN'; // Track active tab for orders list
 
 // API Base URLs
 const API_BASE_URL = '/api/orders';
 const CUSTOMERS_API_URL = '/api/customers';
 const BATCHES_API_URL = '/api/batches';
 
+// ==================== UTILITY FUNCTIONS ====================
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    // Using SweetAlert2
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer);
+            toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
+    });
+
+    const backgroundMap = {
+        'success': '#51cf66',
+        'error': '#ff6b6b',
+        'warning': '#ffd43b',
+        'info': '#4dabf7'
+    };
+
+    Toast.fire({
+        icon: type,
+        title: message,
+        background: backgroundMap[type] || backgroundMap['info']
+    });
+}
+
+/**
+ * Format number with commas
+ */
+function formatNumber(num) {
+    if (!num && num !== 0) return '0.00';
+    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * Format date and time
+ */
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+/**
+ * Show loading spinner
+ */
+function showLoadingSpinner() {
+    // Can be implemented with a loading overlay if needed
+}
+
+/**
+ * Hide loading spinner
+ */
+function hideLoadingSpinner() {
+    // Can be implemented with a loading overlay if needed
+}
+
+// ==================== INITIALIZATION ====================
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function () {
     loadOrders();
-    loadCustomers();
-    loadProductBatches();
     setupEventListeners();
+    loadCustomers();
 });
 
 // Setup event listeners
 function setupEventListeners() {
-    // Search functionality
+    // Search and filter
     const searchInput = document.getElementById('searchOrder');
     if (searchInput) {
         searchInput.addEventListener('input', filterOrders);
     }
 
-    // Customer selection change
-    const customerSelect = document.getElementById('customer');
-    if (customerSelect) {
-        customerSelect.addEventListener('change', onCustomerSelection);
+    // Barcode input
+    const barcodeInput = document.getElementById('barcodeInput');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keypress', handleBarcodeInput);
     }
 
-    // Order type change
-    const orderTypeSelect = document.getElementById('orderType');
-    if (orderTypeSelect) {
-        orderTypeSelect.addEventListener('change', () => {
-            // Can add logic based on order type
+    // Clear barcode button
+    const btnClearBarcode = document.getElementById('btnClearBarcode');
+    if (btnClearBarcode) {
+        btnClearBarcode.addEventListener('click', () => {
+            const barcodeInput = document.getElementById('barcodeInput');
+            if (barcodeInput) {
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            }
         });
     }
+
+    // Customer search
+    const btnSearchCustomer = document.getElementById('btnSearchCustomer');
+    if (btnSearchCustomer) {
+        btnSearchCustomer.addEventListener('click', searchCustomers);
+    }
+
+    const customerSearch = document.getElementById('customerSearch');
+    if (customerSearch) {
+        customerSearch.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchCustomers();
+            }
+        });
+    }
+
+    // Fulfillment type change
+    const fulfillmentRadios = document.querySelectorAll('input[name="fulfillmentType"]');
+    fulfillmentRadios.forEach(radio => {
+        radio.addEventListener('change', handleFulfillmentTypeChange);
+    });
 
     // Loyalty points change
     const loyaltyPointsInput = document.getElementById('loyaltyPointsUsed');
@@ -48,28 +150,523 @@ function setupEventListeners() {
         loyaltyPointsInput.addEventListener('input', calculateOrderTotal);
     }
 
-    // Calculation triggers
-    const discountAmountInput = document.getElementById('discountAmount');
-    const taxAmountInput = document.getElementById('taxAmount');
-    const deliveryChargeInput = document.getElementById('deliveryCharge');
+    // Discount and tax changes
+    const discountInput = document.getElementById('discountAmount');
+    const taxInput = document.getElementById('taxAmount');
+    if (discountInput) discountInput.addEventListener('input', calculateOrderTotal);
+    if (taxInput) taxInput.addEventListener('input', calculateOrderTotal);
 
-    if (discountAmountInput) discountAmountInput.addEventListener('input', calculateOrderTotal);
-    if (taxAmountInput) taxAmountInput.addEventListener('input', calculateOrderTotal);
-    if (deliveryChargeInput) deliveryChargeInput.addEventListener('input', calculateOrderTotal);
+    // Modal dismiss handler - reset form
+    const orderModal = document.getElementById('modalOrderForm');
+    if (orderModal) {
+        orderModal.addEventListener('hide.bs.modal', function () {
+            clearOrderForm();
+        });
+        // Set focus on barcode input when modal opens
+        orderModal.addEventListener('show.bs.modal', function () {
+            setTimeout(() => {
+                const barcodeInput = document.getElementById('barcodeInput');
+                if (barcodeInput) {
+                    barcodeInput.focus();
+                }
+            }, 300);
+        });
+    }
 }
 
-// Load all orders from backend
+// Handle barcode input (Enter key)
+async function handleBarcodeInput(event) {
+    if (event.key !== 'Enter') return;
+
+    event.preventDefault();
+    const barcodeInput = document.getElementById('barcodeInput');
+    const barcode = barcodeInput.value.trim();
+
+    if (!barcode) {
+        showToast('Please scan or enter a barcode', 'warning');
+        return;
+    }
+
+    try {
+        // Try to get product by barcode
+        const response = await fetch(`${BATCHES_API_URL}/barcode/${barcode}/pricing`);
+
+        if (!response.ok) {
+            showToast('Product not found for barcode: ' + barcode, 'error');
+            barcodeInput.value = '';
+            barcodeInput.focus();
+            return;
+        }
+
+        const result = await response.json();
+        const product = result.data;
+
+        // Add to cart or increase quantity if exists
+        addToCart(product);
+
+        // Clear input and focus
+        barcodeInput.value = '';
+        barcodeInput.focus();
+
+    } catch (error) {
+        console.error('Error fetching product:', error);
+        showToast('Error retrieving product information', 'error');
+        barcodeInput.value = '';
+        barcodeInput.focus();
+    }
+}
+
+// Add product to cart
+function addToCart(product) {
+    const itemKey = `${product.batchId}`;
+
+    // Check if item already exists in cart
+    let existingItem = cartItems.find(item => item.batchId === product.batchId);
+
+    if (existingItem) {
+        // Increase quantity if in stock
+        if (existingItem.quantity < product.stockQuantity) {
+            existingItem.quantity++;
+        } else {
+            showToast(`Cannot add more. Stock available: ${product.stockQuantity}`, 'warning');
+        }
+    } else {
+        // Add new item
+        cartItems.push({
+            batchId: product.batchId,
+            productName: product.productName,
+            batchCode: product.batchCode,
+            quantity: 1,
+            unitPrice: product.sellingPrice,
+            stockQuantity: product.stockQuantity,
+            expiryDate: product.expiryDate
+        });
+    }
+
+    renderCartItems();
+    calculateOrderTotal();
+    showToast(`Added ${product.productName} to cart`, 'success');
+}
+
+// Render cart items in table
+function renderCartItems() {
+    const tbody = document.getElementById('orderItemsBody');
+    if (!tbody) return;
+
+    if (cartItems.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                    <i class="fas fa-shopping-cart fa-2x mb-2"></i>
+                    <p>Scan items to add to cart</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = cartItems.map((item, index) => {
+        const total = item.quantity * item.unitPrice;
+        return `
+            <tr>
+                <td>${item.productName}</td>
+                <td class="text-center"><small>${item.batchCode}</small></td>
+                <td class="text-end">Rs. ${formatNumber(item.unitPrice)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="decreaseQuantity(${index})">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <span class="mx-2 fw-bold">${item.quantity}</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="increaseQuantity(${index})">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+                <td class="text-end fw-bold">Rs. ${formatNumber(total)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeCartItem(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Increase item quantity
+function increaseQuantity(index) {
+    if (index >= 0 && index < cartItems.length) {
+        if (cartItems[index].quantity < cartItems[index].stockQuantity) {
+            cartItems[index].quantity++;
+            renderCartItems();
+            calculateOrderTotal();
+        } else {
+            showToast('Maximum stock available reached', 'warning');
+        }
+    }
+}
+
+// Decrease item quantity
+function decreaseQuantity(index) {
+    if (index >= 0 && index < cartItems.length) {
+        if (cartItems[index].quantity > 1) {
+            cartItems[index].quantity--;
+            renderCartItems();
+            calculateOrderTotal();
+        } else {
+            removeCartItem(index);
+        }
+    }
+}
+
+// Remove item from cart
+function removeCartItem(index) {
+    if (index >= 0 && index < cartItems.length) {
+        const productName = cartItems[index].productName;
+        cartItems.splice(index, 1);
+        renderCartItems();
+        calculateOrderTotal();
+        showToast(`${productName} removed from cart`, 'info');
+    }
+}
+
+// Search customers
+async function searchCustomers() {
+    const searchTerm = document.getElementById('customerSearch')?.value.trim();
+
+    if (!searchTerm) {
+        showToast('Please enter search term', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${CUSTOMERS_API_URL}/search?q=${encodeURIComponent(searchTerm)}`);
+        if (!response.ok) throw new Error('Search failed');
+
+        const result = await response.json();
+        const searchResults = result.data || [];
+
+        displayCustomerSearchResults(searchResults);
+
+    } catch (error) {
+        console.error('Error searching customers:', error);
+        showToast('Failed to search customers', 'error');
+    }
+}
+
+// Display customer search results
+function displayCustomerSearchResults(results) {
+    const resultsContainer = document.getElementById('customerSearchResults');
+    if (!resultsContainer) return;
+
+    if (results.length === 0) {
+        resultsContainer.innerHTML = '<div class="alert alert-info">No customers found</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    resultsContainer.innerHTML = results.map(customer => `
+        <button type="button" class="list-group-item list-group-item-action" 
+            onclick="selectCustomerFromSearch(${customer.customerId}, '${customer.fullName}', ${customer.loyaltyPoints || 0})">
+            <strong>${customer.fullName}</strong><br>
+            <small class="text-muted">NIC: ${customer.nic || 'N/A'} | Phone: ${customer.phone}</small>
+        </button>
+    `).join('');
+    resultsContainer.style.display = 'block';
+}
+
+// Select customer from search results
+function selectCustomerFromSearch(customerId, fullName, loyaltyPoints) {
+    selectedCustomer = {
+        customerId: customerId,
+        fullName: fullName,
+        loyaltyPoints: loyaltyPoints
+    };
+
+    // Update selected customer display
+    const selectedCustomerDiv = document.getElementById('selectedCustomer');
+    if (selectedCustomerDiv) {
+        selectedCustomerDiv.innerHTML = `
+            <strong>${fullName}</strong><br>
+            <small class="text-muted">Loyalty Points: ${loyaltyPoints}</small>
+        `;
+    }
+
+    // Update hidden customer ID
+    document.getElementById('customerId').value = customerId;
+
+    // Update available loyalty points
+    document.getElementById('loyaltyPointsDisplay').textContent = loyaltyPoints;
+    document.getElementById('availableLoyaltyPoints').textContent = loyaltyPoints;
+
+    // Reset loyalty points used
+    const loyaltyPointsUsed = document.getElementById('loyaltyPointsUsed');
+    if (loyaltyPointsUsed) loyaltyPointsUsed.value = 0;
+
+    // Hide search results
+    document.getElementById('customerSearchResults').style.display = 'none';
+    document.getElementById('customerSearch').value = '';
+
+    calculateOrderTotal();
+    showToast(`Customer ${fullName} selected`, 'success');
+}
+
+// Handle fulfillment type change
+function handleFulfillmentTypeChange() {
+    const fulfillmentType = document.querySelector('input[name="fulfillmentType"]:checked')?.value;
+    const deliverySection = document.getElementById('deliveryAddressSection');
+
+    if (deliverySection) {
+        if (fulfillmentType === 'DELIVERY') {
+            deliverySection.style.display = 'block';
+        } else {
+            deliverySection.style.display = 'none';
+        }
+    }
+}
+
+// Save new customer
+async function saveNewCustomer() {
+    const fullName = document.getElementById('newCustFullName')?.value.trim();
+    const nic = document.getElementById('newCustNIC')?.value.trim();
+    const phone = document.getElementById('newCustPhone')?.value.trim();
+    const email = document.getElementById('newCustEmail')?.value.trim() || null;
+    const address = document.getElementById('newCustAddress')?.value.trim() || null;
+
+    // Validation
+    if (!fullName || !nic || !phone) {
+        showToast('Please fill all required fields', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(CUSTOMERS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fullName: fullName,
+                nic: nic,
+                phone: phone,
+                email: email,
+                address: address
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create customer');
+        }
+
+        const result = await response.json();
+        const newCustomer = result.data;
+
+        // Select the new customer
+        selectCustomerFromSearch(newCustomer.customerId, newCustomer.fullName, 0);
+
+        // Reset and close modal
+        document.getElementById('newCustomerForm').reset();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalNewCustomer'));
+        if (modal) modal.hide();
+
+        showToast(`Customer ${newCustomer.fullName} registered successfully!`, 'success');
+
+    } catch (error) {
+        console.error('Error creating customer:', error);
+        showToast(error.message || 'Failed to register customer', 'error');
+    }
+}
+
+// Calculate order total
+function calculateOrderTotal() {
+    let subtotal = 0;
+
+    // Calculate subtotal from cart items
+    cartItems.forEach(item => {
+        subtotal += item.quantity * item.unitPrice;
+    });
+
+    const discountAmount = parseFloat(document.getElementById('discountAmount')?.value) || 0;
+    const taxAmount = parseFloat(document.getElementById('taxAmount')?.value) || 0;
+
+    // Calculate loyalty discount (Rs. 10 per point)
+    const loyaltyPointsUsed = parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0;
+    const loyaltyDiscount = loyaltyPointsUsed * 10;
+
+    const grandTotal = subtotal - discountAmount + taxAmount - loyaltyDiscount;
+
+    // Update displays
+    document.getElementById('subtotalDisplay').textContent = 'Rs. ' + formatNumber(subtotal);
+    document.getElementById('loyaltyDiscountDisplay').textContent = '- Rs. ' + formatNumber(loyaltyDiscount);
+    document.getElementById('grandTotalDisplay').textContent = 'Rs. ' + formatNumber(Math.max(0, grandTotal));
+
+    // Validate loyalty points
+    const availablePoints = parseInt(document.getElementById('availableLoyaltyPoints')?.textContent) || 0;
+    const loyaltyInput = document.getElementById('loyaltyPointsUsed');
+    if (loyaltyPointsUsed > availablePoints && loyaltyInput) {
+        loyaltyInput.classList.add('is-invalid');
+    } else if (loyaltyInput) {
+        loyaltyInput.classList.remove('is-invalid');
+    }
+}
+
+// Get order form data
+function getOrderFormData() {
+    const fulfillmentType = document.querySelector('input[name="fulfillmentType"]:checked')?.value || 'PICKUP';
+    const customerId = document.getElementById('customerId')?.value || null;
+
+    const items = cartItems.map(item => ({
+        batchId: item.batchId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountPercentage: 0
+    }));
+
+    const orderData = {
+        customerId: customerId ? parseInt(customerId) : null,
+        orderType: 'ONLINE',
+        fulfillmentType: fulfillmentType,
+        items: items,
+        taxAmount: parseFloat(document.getElementById('taxAmount')?.value) || 0,
+        deliveryCharge: 0,
+        loyaltyPointsUsed: parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0
+    };
+
+    // Add delivery address if delivery is selected
+    if (fulfillmentType === 'DELIVERY') {
+        orderData.deliveryAddress = document.getElementById('deliveryAddress')?.value || '';
+        orderData.deliveryCity = document.getElementById('deliveryCity')?.value || '';
+        orderData.deliveryPhone = document.getElementById('deliveryPhone')?.value || '';
+    }
+
+    return orderData;
+}
+
+// Validate order form
+function validateOrderForm() {
+    const fulfillmentType = document.querySelector('input[name="fulfillmentType"]:checked')?.value;
+
+    if (!fulfillmentType) {
+        showToast('Please select fulfillment type', 'error');
+        return false;
+    }
+
+    if (cartItems.length === 0) {
+        showToast('Please scan items to add to cart', 'error');
+        return false;
+    }
+
+    // Validate delivery address if delivery is selected
+    if (fulfillmentType === 'DELIVERY') {
+        const address = document.getElementById('deliveryAddress')?.value.trim();
+        const city = document.getElementById('deliveryCity')?.value.trim();
+        const phone = document.getElementById('deliveryPhone')?.value.trim();
+
+        if (!address || !city || !phone) {
+            showToast('Please provide complete delivery address', 'error');
+            return false;
+        }
+    }
+
+    // Validate loyalty points
+    const loyaltyPointsUsed = parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0;
+    if (loyaltyPointsUsed > 0 && !selectedCustomer) {
+        showToast('Please select a customer to use loyalty points', 'error');
+        return false;
+    }
+
+    const availablePoints = parseInt(document.getElementById('availableLoyaltyPoints')?.textContent) || 0;
+    if (loyaltyPointsUsed > availablePoints) {
+        showToast(`Cannot use more than ${availablePoints} loyalty points`, 'error');
+        return false;
+    }
+
+    return true;
+}
+
+// Submit order form
+async function submitOrderForm() {
+    if (!validateOrderForm()) {
+        return;
+    }
+
+    const orderData = getOrderFormData();
+
+    try {
+        const btnSubmit = document.getElementById('btnSubmitOrder');
+        if (btnSubmit) btnSubmit.disabled = true;
+
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create order');
+        }
+
+        const result = await response.json();
+
+        showToast(`Order created successfully! Order Code: ${result.data.orderCode}`, 'success');
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalOrderForm'));
+        if (modal) modal.hide();
+
+        clearOrderForm();
+        loadOrders();
+
+    } catch (error) {
+        console.error('Error creating order:', error);
+        showToast(error.message || 'Failed to create order', 'error');
+    } finally {
+        const btnSubmit = document.getElementById('btnSubmitOrder');
+        if (btnSubmit) btnSubmit.disabled = false;
+    }
+}
+
+// Clear order form
+function clearOrderForm() {
+    cartItems = [];
+    selectedCustomer = null;
+
+    // Reset form elements
+    document.getElementById('orderForm').reset();
+    document.getElementById('customerId').value = '';
+    document.getElementById('customerSearch').value = '';
+    document.getElementById('barcodeInput').value = '';
+    document.getElementById('customerSearchResults').style.display = 'none';
+
+    // Reset customer display
+    const selectedCustomerDiv = document.getElementById('selectedCustomer');
+    if (selectedCustomerDiv) {
+        selectedCustomerDiv.innerHTML = '<span class="text-muted">No customer selected</span>';
+    }
+
+    // Reset fulfillment type
+    document.getElementById('fulfillmentPickup').checked = true;
+    document.getElementById('deliveryAddressSection').style.display = 'none';
+
+    // Reset loyalty points
+    document.getElementById('loyaltyPointsUsed').value = '0';
+    document.getElementById('availableLoyaltyPoints').textContent = '0';
+    document.getElementById('loyaltyPointsDisplay').textContent = '0';
+
+    // Render cart and calculate totals
+    renderCartItems();
+    calculateOrderTotal();
+}
+
+// Load all orders
 async function loadOrders() {
     try {
         showLoadingSpinner();
         const response = await fetch(API_BASE_URL);
 
-        if (!response.ok) {
-            throw new Error('Failed to load orders');
-        }
+        if (!response.ok) throw new Error('Failed to load orders');
 
-        const apiResponse = await response.json();
-        orders = apiResponse.data || [];
+        const result = await response.json();
+        orders = result.data || [];
 
         displayOrders();
         updateStatistics();
@@ -82,79 +679,49 @@ async function loadOrders() {
     }
 }
 
-// Load customers for dropdown
+// Load customers
 async function loadCustomers() {
     try {
         const response = await fetch(CUSTOMERS_API_URL);
         if (!response.ok) throw new Error('Failed to load customers');
 
-        const apiResponse = await response.json();
-        customers = apiResponse.data || [];
-
-        populateCustomerDropdown();
+        const result = await response.json();
+        customers = result.data || [];
 
     } catch (error) {
         console.error('Error loading customers:', error);
     }
 }
 
-// Load product batches for dropdown
-async function loadProductBatches() {
-    try {
-        const response = await fetch(BATCHES_API_URL);
-        if (!response.ok) throw new Error('Failed to load product batches');
+// Switch between tabs for orders list
+function switchTab(orderType) {
+    activeTab = orderType;
 
-        const apiResponse = await response.json();
-        productBatches = apiResponse.data || [];
+    // Update tab active states
+    document.getElementById('walkInTab')?.classList.toggle('active', orderType === 'WALK_IN');
+    document.getElementById('onlineTab')?.classList.toggle('active', orderType === 'ONLINE');
 
-    } catch (error) {
-        console.error('Error loading product batches:', error);
-        showToast('Failed to load products. Please refresh the page.', 'warning');
-    }
+    // Filter and display orders for the selected tab
+    displayOrders();
 }
 
-// Populate customer dropdown
-function populateCustomerDropdown() {
-    const customerSelect = document.getElementById('customer');
-    if (!customerSelect) return;
-
-    customerSelect.innerHTML = '<option value="">Walk-in Customer (Optional)</option>';
-
-    customers.forEach(customer => {
-        const option = document.createElement('option');
-        option.value = customer.customerId;
-        option.textContent = `${customer.fullName} - ${customer.phone}`;
-        option.setAttribute('data-loyalty-points', customer.loyaltyPoints || 0);
-        customerSelect.appendChild(option);
-    });
-}
-
-// Handle customer selection
-function onCustomerSelection() {
-    const customerSelect = document.getElementById('customer');
-    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
-
-    if (selectedOption && selectedOption.value) {
-        const loyaltyPoints = selectedOption.getAttribute('data-loyalty-points') || 0;
-        document.getElementById('availableLoyaltyPoints').textContent = loyaltyPoints;
-
-        // Reset loyalty points used if it exceeds available
-        const loyaltyPointsUsed = document.getElementById('loyaltyPointsUsed');
-        if (loyaltyPointsUsed && parseInt(loyaltyPointsUsed.value) > parseInt(loyaltyPoints)) {
-            loyaltyPointsUsed.value = 0;
-        }
-    } else {
-        document.getElementById('availableLoyaltyPoints').textContent = '0';
-        document.getElementById('loyaltyPointsUsed').value = '0';
-    }
-
-    calculateOrderTotal();
-}
-
-// Display orders in table
+// Display orders in table with tab filtering
 function displayOrders(ordersToDisplay = orders) {
-    const tableBody = document.getElementById('ordersTableBody');
+    // Filter orders based on active tab
+    const filteredOrders = (ordersToDisplay === orders)
+        ? orders.filter(o => o.orderType === activeTab)
+        : ordersToDisplay.filter(o => o.orderType === activeTab);
 
+    if (activeTab === 'WALK_IN') {
+        displayWalkInOrders(filteredOrders);
+    } else {
+        displayOnlineOrders(filteredOrders);
+    }
+}
+
+// Display Walk-In Orders
+function displayWalkInOrders(ordersToDisplay) {
+    const tableBody = document.getElementById('ordersTableBody');
     if (!tableBody) return;
 
     tableBody.innerHTML = '';
@@ -162,9 +729,9 @@ function displayOrders(ordersToDisplay = orders) {
     if (ordersToDisplay.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center text-muted">
+                <td colspan="8" class="text-center text-muted py-5">
                     <i class="fas fa-shopping-cart fa-3x mb-3"></i>
-                    <p>No orders found</p>
+                    <p>No walk-in orders found</p>
                 </td>
             </tr>
         `;
@@ -173,31 +740,137 @@ function displayOrders(ordersToDisplay = orders) {
 
     ordersToDisplay.forEach((order, index) => {
         const row = document.createElement('tr');
-
         const customerName = order.customerName || 'Walk-in';
         const statusBadge = getOrderStatusBadge(order.status);
+        const isCompleted = order.status === 'COMPLETED' || order.status === 'CANCELLED';
+        const isDelivery = order.fulfillmentType === 'DELIVERY';
+        // Only show complete button for PICKUP orders that are not completed/cancelled
+        const canComplete = !isCompleted && !isDelivery;
 
         row.innerHTML = `
             <td>${index + 1}</td>
             <td><strong>${order.orderCode}</strong></td>
             <td>${customerName}</td>
-            <td><span class="badge bg-info">${order.orderType}</span></td>
             <td>${order.items ? order.items.length : 0}</td>
             <td class="fw-bold text-success">Rs. ${formatNumber(order.grandTotal)}</td>
             <td>${statusBadge}</td>
             <td><small>${formatDateTime(order.createdAt)}</small></td>
             <td>
-                <button class="btn btn-outline-primary btn-sm me-1" onclick="viewOrder(${order.orderId})" title="View">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn btn-outline-warning btn-sm me-1" onclick="updateOrderStatus(${order.orderId})" title="Update Status">
-                    <i class="fas fa-edit"></i>
-                </button>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-info" onclick="viewOrder(${order.orderId})" title="View Details" data-bs-toggle="tooltip">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="editOrder(${order.orderId})" title="Edit Order" data-bs-toggle="tooltip">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${canComplete ? `<button class="btn btn-outline-success" onclick="completeOrder(${order.orderId})" title="Mark Complete" data-bs-toggle="tooltip">
+                        <i class="fas fa-check"></i>
+                    </button>` : ''}
+                    <button class="btn btn-outline-danger" onclick="deleteOrder(${order.orderId})" title="Delete Order" data-bs-toggle="tooltip">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-outline-success" onclick="downloadOrderBill(${order.orderId})" title="Download Bill" data-bs-toggle="tooltip">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
             </td>
         `;
 
         tableBody.appendChild(row);
     });
+}
+
+// Display Online Orders (with Fulfillment Type)
+function displayOnlineOrders(ordersToDisplay) {
+    const tableBody = document.getElementById('ordersTableBodyOnline');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+
+    if (ordersToDisplay.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center text-muted py-5">
+                    <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                    <p>No online orders found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    ordersToDisplay.forEach((order, index) => {
+        const row = document.createElement('tr');
+        const customerName = order.customerName || 'Customer';
+        const statusBadge = getOrderStatusBadge(order.status);
+        const fulfillmentBadge = getFulfillmentTypeBadge(order.fulfillmentType);
+        const isCompleted = order.status === 'COMPLETED' || order.status === 'CANCELLED';
+        const isDelivery = order.fulfillmentType === 'DELIVERY';
+        // Only show complete button for PICKUP orders that are not completed/cancelled
+        const canComplete = !isCompleted && !isDelivery;
+
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td><strong>${order.orderCode}</strong></td>
+            <td>${customerName}</td>
+            <td>${order.items ? order.items.length : 0}</td>
+            <td class="fw-bold text-success">Rs. ${formatNumber(order.grandTotal)}</td>
+            <td>${fulfillmentBadge}</td>
+            <td>${statusBadge}</td>
+            <td><small>${formatDateTime(order.createdAt)}</small></td>
+            <td>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-info" onclick="viewOrder(${order.orderId})" title="View Details" data-bs-toggle="tooltip">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="editOrder(${order.orderId})" title="Edit Order" data-bs-toggle="tooltip">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${canComplete ? `<button class="btn btn-outline-success" onclick="completeOrder(${order.orderId})" title="Mark Complete" data-bs-toggle="tooltip">
+                        <i class="fas fa-check"></i>
+                    </button>` : ''}
+                    <button class="btn btn-outline-danger" onclick="deleteOrder(${order.orderId})" title="Delete Order" data-bs-toggle="tooltip">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-outline-success" onclick="downloadOrderBill(${order.orderId})" title="Download Bill" data-bs-toggle="tooltip">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+
+// Get fulfillment type badge
+function getFulfillmentTypeBadge(fulfillmentType) {
+    const badges = {
+        'PICKUP': '<span class="badge bg-primary"><i class="fas fa-store me-1"></i>Pickup</span>',
+        'DELIVERY': '<span class="badge bg-success"><i class="fas fa-truck me-1"></i>Delivery</span>',
+        'BOTH': '<span class="badge bg-secondary"><i class="fas fa-arrows-alt-h me-1"></i>Both</span>'
+    };
+    return badges[fulfillmentType] || '<span class="badge bg-secondary">N/A</span>';
+}
+
+// Filter orders
+function filterOrders() {
+    const searchTerm = document.getElementById('searchOrder')?.value.toLowerCase() || '';
+
+    const filteredOrders = orders.filter(order => {
+        return !searchTerm ||
+            (order.orderCode && order.orderCode.toLowerCase().includes(searchTerm)) ||
+            (order.customerName && order.customerName.toLowerCase().includes(searchTerm));
+    });
+
+    displayOrders(filteredOrders);
+}
+
+// Clear filters
+function clearOrderFilters() {
+    const searchInput = document.getElementById('searchOrder');
+    if (searchInput) searchInput.value = '';
+    displayOrders();
 }
 
 // Get order status badge
@@ -225,310 +898,18 @@ function updateStatistics() {
         .filter(o => o.createdAt && o.createdAt.startsWith(today))
         .reduce((sum, o) => sum + (parseFloat(o.grandTotal) || 0), 0);
 
-    const pendingOrdersEl = document.getElementById('pendingOrders');
-    const processingOrdersEl = document.getElementById('processingOrders');
-    const completedOrdersEl = document.getElementById('completedOrders');
-    const todayRevenueEl = document.getElementById('todayRevenue');
-
-    if (pendingOrdersEl) pendingOrdersEl.textContent = pendingOrders;
-    if (processingOrdersEl) processingOrdersEl.textContent = processingOrders;
-    if (completedOrdersEl) completedOrdersEl.textContent = totalOrders;
-    if (todayRevenueEl) todayRevenueEl.textContent = 'Rs. ' + formatNumber(todayRevenue);
-}
-
-// Filter orders
-function filterOrders() {
-    const searchTerm = document.getElementById('searchOrder')?.value.toLowerCase() || '';
-
-    const filteredOrders = orders.filter(order => {
-        const matchesSearch = !searchTerm ||
-            (order.orderCode && order.orderCode.toLowerCase().includes(searchTerm)) ||
-            (order.customerName && order.customerName.toLowerCase().includes(searchTerm));
-
-        return matchesSearch;
-    });
-
-    displayOrders(filteredOrders);
-}
-
-// Clear filters
-function clearOrderFilters() {
-    const searchInput = document.getElementById('searchOrder');
-    if (searchInput) searchInput.value = '';
-
-    displayOrders();
-}
-
-// Add order item row
-function addOrderItem() {
-    const tbody = document.getElementById('orderItemsBody');
-    if (!tbody) return;
-
-    const itemIndex = tbody.children.length;
-    const row = document.createElement('tr');
-
-    row.innerHTML = `
-        <td>
-            <select class="form-select form-select-sm" id="batch_${itemIndex}" onchange="updateItemDetails(${itemIndex})">
-                <option value="">Select Product Batch</option>
-                ${productBatches.map(batch =>
-        `<option value="${batch.batchId}" 
-                             data-price="${batch.sellingPrice}" 
-                             data-stock="${batch.stockQuantity}"
-                             data-product-name="${batch.productName}">
-                        ${batch.productName} - Batch: ${batch.batchCode} (Stock: ${batch.stockQuantity})
-                    </option>`
-    ).join('')}
-            </select>
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm text-end" id="price_${itemIndex}" readonly step="0.01">
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm" id="quantity_${itemIndex}" 
-                   min="1" value="1" onchange="updateItemTotal(${itemIndex})">
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm" id="discount_${itemIndex}" 
-                   min="0" max="100" value="0" step="0.01" onchange="updateItemTotal(${itemIndex})">
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm text-end" id="total_${itemIndex}" readonly step="0.01">
-        </td>
-        <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeOrderItem(${itemIndex})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
-
-    tbody.appendChild(row);
-}
-
-// Update item details when batch is selected
-function updateItemDetails(itemIndex) {
-    const batchSelect = document.getElementById(`batch_${itemIndex}`);
-    const priceInput = document.getElementById(`price_${itemIndex}`);
-    const quantityInput = document.getElementById(`quantity_${itemIndex}`);
-
-    if (batchSelect && batchSelect.value) {
-        const selectedOption = batchSelect.options[batchSelect.selectedIndex];
-        const price = selectedOption.getAttribute('data-price');
-        const stock = selectedOption.getAttribute('data-stock');
-
-        if (priceInput) priceInput.value = price;
-        if (quantityInput) {
-            quantityInput.max = stock;
-            if (parseInt(quantityInput.value) > parseInt(stock)) {
-                quantityInput.value = stock;
-            }
-        }
-
-        updateItemTotal(itemIndex);
-    } else {
-        if (priceInput) priceInput.value = '';
-        if (quantityInput) quantityInput.max = '';
-        updateItemTotal(itemIndex);
+    if (document.getElementById('pendingOrders')) {
+        document.getElementById('pendingOrders').textContent = pendingOrders;
     }
-}
-
-// Update item total
-function updateItemTotal(itemIndex) {
-    const priceInput = document.getElementById(`price_${itemIndex}`);
-    const quantityInput = document.getElementById(`quantity_${itemIndex}`);
-    const discountInput = document.getElementById(`discount_${itemIndex}`);
-    const totalInput = document.getElementById(`total_${itemIndex}`);
-
-    if (!priceInput || !quantityInput || !totalInput) return;
-
-    const price = parseFloat(priceInput.value) || 0;
-    const quantity = parseInt(quantityInput.value) || 0;
-    const discountPercent = parseFloat(discountInput?.value) || 0;
-
-    const subtotal = price * quantity;
-    const discountAmount = subtotal * (discountPercent / 100);
-    const total = subtotal - discountAmount;
-
-    totalInput.value = total.toFixed(2);
-    calculateOrderTotal();
-}
-
-// Remove order item
-function removeOrderItem(itemIndex) {
-    const row = document.getElementById(`batch_${itemIndex}`)?.closest('tr');
-    if (row) {
-        row.remove();
-        calculateOrderTotal();
+    if (document.getElementById('processingOrders')) {
+        document.getElementById('processingOrders').textContent = processingOrders;
     }
-}
-
-// Calculate order total
-function calculateOrderTotal() {
-    let subtotal = 0;
-    const tbody = document.getElementById('orderItemsBody');
-
-    if (tbody) {
-        for (let i = 0; i < tbody.children.length; i++) {
-            const totalInput = document.getElementById(`total_${i}`);
-            if (totalInput && totalInput.value) {
-                subtotal += parseFloat(totalInput.value) || 0;
-            }
-        }
+    if (document.getElementById('completedOrders')) {
+        document.getElementById('completedOrders').textContent = totalOrders;
     }
-
-    const discountAmount = parseFloat(document.getElementById('discountAmount')?.value) || 0;
-    const taxAmount = parseFloat(document.getElementById('taxAmount')?.value) || 0;
-    const deliveryCharge = parseFloat(document.getElementById('deliveryCharge')?.value) || 0;
-
-    // Calculate loyalty discount (Rs. 1 per point)
-    const loyaltyPointsUsed = parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0;
-    const loyaltyDiscount = loyaltyPointsUsed * 1; // 1 point = Rs. 1
-
-    const grandTotal = subtotal - discountAmount + taxAmount + deliveryCharge - loyaltyDiscount;
-
-    // Update display
-    const subtotalDisplay = document.getElementById('subtotalDisplay');
-    const loyaltyDiscountDisplay = document.getElementById('loyaltyDiscountDisplay');
-    const grandTotalDisplay = document.getElementById('grandTotalDisplay');
-
-    if (subtotalDisplay) subtotalDisplay.textContent = 'Rs. ' + formatNumber(subtotal);
-    if (loyaltyDiscountDisplay) loyaltyDiscountDisplay.textContent = '- Rs. ' + formatNumber(loyaltyDiscount);
-    if (grandTotalDisplay) grandTotalDisplay.textContent = 'Rs. ' + formatNumber(grandTotal);
-}
-
-// Submit order form (Create)
-async function submitOrderForm() {
-    if (!validateOrderForm()) {
-        return;
+    if (document.getElementById('todayRevenue')) {
+        document.getElementById('todayRevenue').textContent = 'Rs. ' + formatNumber(todayRevenue);
     }
-
-    const orderData = getOrderFormData();
-
-    try {
-        showButtonLoading('btnSubmitOrder');
-
-        const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(orderData)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to create order');
-        }
-
-        const result = await response.json();
-
-        hideButtonLoading('btnSubmitOrder');
-        showToast(`Order created successfully! Order Code: ${result.data.orderCode}`, 'success');
-
-        // Close modal and refresh list
-        const modal = bootstrap.Modal.getInstance(document.getElementById('modalOrderForm'));
-        if (modal) modal.hide();
-
-        clearOrderForm();
-        loadOrders();
-
-    } catch (error) {
-        console.error('Error creating order:', error);
-        hideButtonLoading('btnSubmitOrder');
-        showToast(error.message || 'Failed to create order', 'error');
-    }
-}
-
-// Get order form data
-function getOrderFormData() {
-    const customerSelect = document.getElementById('customer');
-    const customerId = customerSelect?.value || null;
-
-    const items = [];
-    const tbody = document.getElementById('orderItemsBody');
-
-    for (let i = 0; i < tbody.children.length; i++) {
-        const batchSelect = document.getElementById(`batch_${i}`);
-        const quantityInput = document.getElementById(`quantity_${i}`);
-        const priceInput = document.getElementById(`price_${i}`);
-        const discountInput = document.getElementById(`discount_${i}`);
-
-        if (batchSelect && batchSelect.value && quantityInput && quantityInput.value) {
-            items.push({
-                batchId: parseInt(batchSelect.value),
-                quantity: parseInt(quantityInput.value),
-                unitPrice: parseFloat(priceInput.value),
-                discountPercentage: parseFloat(discountInput?.value) || 0
-            });
-        }
-    }
-
-    return {
-        customerId: customerId ? parseInt(customerId) : null,
-        orderType: document.getElementById('orderType')?.value || 'WALK_IN',
-        items: items,
-        taxAmount: parseFloat(document.getElementById('taxAmount')?.value) || 0,
-        deliveryCharge: parseFloat(document.getElementById('deliveryCharge')?.value) || 0,
-        loyaltyPointsUsed: parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0,
-        discountCode: document.getElementById('discountCode')?.value || null,
-        notes: document.getElementById('notes')?.value || null
-    };
-}
-
-// Validate order form
-function validateOrderForm() {
-    const orderType = document.getElementById('orderType')?.value;
-    if (!orderType) {
-        showToast('Please select order type', 'error');
-        return false;
-    }
-
-    const tbody = document.getElementById('orderItemsBody');
-    if (!tbody || tbody.children.length === 0) {
-        showToast('Please add at least one item to the order', 'error');
-        return false;
-    }
-
-    // Validate each item
-    let validItems = 0;
-    for (let i = 0; i < tbody.children.length; i++) {
-        const batchSelect = document.getElementById(`batch_${i}`);
-        const quantityInput = document.getElementById(`quantity_${i}`);
-
-        if (batchSelect && batchSelect.value && quantityInput && quantityInput.value > 0) {
-            const selectedOption = batchSelect.options[batchSelect.selectedIndex];
-            const stock = parseInt(selectedOption.getAttribute('data-stock'));
-            const quantity = parseInt(quantityInput.value);
-
-            if (quantity > stock) {
-                showToast(`Insufficient stock for item ${i + 1}. Available: ${stock}`, 'error');
-                return false;
-            }
-            validItems++;
-        }
-    }
-
-    if (validItems === 0) {
-        showToast('Please add valid items with quantities', 'error');
-        return false;
-    }
-
-    // Validate loyalty points
-    const customerId = document.getElementById('customer')?.value;
-    const loyaltyPointsUsed = parseInt(document.getElementById('loyaltyPointsUsed')?.value) || 0;
-
-    if (loyaltyPointsUsed > 0 && !customerId) {
-        showToast('Please select a customer to use loyalty points', 'error');
-        return false;
-    }
-
-    const availablePoints = parseInt(document.getElementById('availableLoyaltyPoints')?.textContent) || 0;
-    if (loyaltyPointsUsed > availablePoints) {
-        showToast(`Cannot use more than ${availablePoints} loyalty points`, 'error');
-        return false;
-    }
-
-    return true;
 }
 
 // View order details
@@ -537,11 +918,10 @@ async function viewOrder(orderId) {
         showLoadingSpinner();
         const response = await fetch(`${API_BASE_URL}/${orderId}`);
 
-        if (!response.ok) throw new Error('Failed to load order details');
+        if (!response.ok) throw new Error('Failed to load order');
 
         const result = await response.json();
         const order = result.data;
-
         hideLoadingSpinner();
 
         // Display in modal
@@ -555,16 +935,20 @@ async function viewOrder(orderId) {
                     <p><strong>Order Code:</strong> ${order.orderCode}</p>
                     <p><strong>Order Type:</strong> <span class="badge bg-info">${order.orderType}</span></p>
                     <p><strong>Status:</strong> ${getOrderStatusBadge(order.status)}</p>
+                    <p><strong>Fulfillment:</strong> ${order.fulfillmentType || 'N/A'}</p>
                     <p><strong>Created:</strong> ${formatDateTime(order.createdAt)}</p>
-                    <p><strong>Created By:</strong> ${order.createdBy || 'System'}</p>
                 </div>
                 <div class="col-md-6">
-                    <h6 class="text-primary">Customer Information</h6>
-                    <p><strong>Customer:</strong> ${order.customerName || 'Walk-in Customer'}</p>
-                    ${order.notes ? `<p><strong>Notes:</strong> ${order.notes}</p>` : ''}
+                    <h6 class="text-primary">Customer & Delivery</h6>
+                    <p><strong>Customer:</strong> ${order.customerName || 'Walk-in'}</p>
+                    ${order.fulfillmentType === 'DELIVERY' ? `
+                        <p><strong>Address:</strong> ${order.deliveryAddress || 'N/A'}</p>
+                        <p><strong>City:</strong> ${order.deliveryCity || 'N/A'}</p>
+                        <p><strong>Phone:</strong> ${order.deliveryPhone || 'N/A'}</p>
+                    ` : ''}
                 </div>
             </div>
-            
+
             <h6 class="text-primary">Order Items</h6>
             <div class="table-responsive mb-3">
                 <table class="table table-sm table-striped">
@@ -573,7 +957,6 @@ async function viewOrder(orderId) {
                             <th>Product</th>
                             <th class="text-end">Qty</th>
                             <th class="text-end">Unit Price</th>
-                            <th class="text-end">Discount</th>
                             <th class="text-end">Total</th>
                         </tr>
                     </thead>
@@ -583,49 +966,34 @@ async function viewOrder(orderId) {
                                 <td>${item.productName}</td>
                                 <td class="text-end">${item.quantity}</td>
                                 <td class="text-end">Rs. ${formatNumber(item.unitPrice)}</td>
-                                <td class="text-end">${item.discountPercentage || 0}%</td>
                                 <td class="text-end fw-bold">Rs. ${formatNumber(item.lineTotal)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             </div>
-            
+
             <div class="row">
-                <div class="col-md-6"></div>
-                <div class="col-md-6">
+                <div class="col-md-8"></div>
+                <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body">
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Subtotal:</span>
-                                <span class="fw-bold">Rs. ${formatNumber(order.subtotal)}</span>
+                                <span>Rs. ${formatNumber(order.subtotal)}</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Discount:</span>
-                                <span>- Rs. ${formatNumber(order.discountAmount || 0)}</span>
+                                <span>Rs. ${formatNumber(order.discountAmount)}</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Tax:</span>
-                                <span>Rs. ${formatNumber(order.taxAmount || 0)}</span>
+                                <span>Rs. ${formatNumber(order.taxAmount)}</span>
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Delivery Charge:</span>
-                                <span>Rs. ${formatNumber(order.deliveryCharge || 0)}</span>
+                            <div class="d-flex justify-content-between text-success fw-bold border-top pt-2">
+                                <span>Grand Total:</span>
+                                <span>Rs. ${formatNumber(order.grandTotal)}</span>
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Loyalty Discount (${order.loyaltyPointsUsed || 0} pts):</span>
-                                <span class="text-success">- Rs. ${formatNumber(order.loyaltyDiscountAmount || 0)}</span>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between">
-                                <strong>Grand Total:</strong>
-                                <strong class="text-success fs-5">Rs. ${formatNumber(order.grandTotal)}</strong>
-                            </div>
-                            ${order.loyaltyPointsEarned ? `
-                                <div class="text-center mt-2">
-                                    <small class="text-muted">Earned: ${order.loyaltyPointsEarned} loyalty points</small>
-                                </div>
-                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -642,240 +1010,369 @@ async function viewOrder(orderId) {
     }
 }
 
-// Update order status
-async function updateOrderStatus(orderId) {
-    // Show status selection dialog
+// Update order status (stub for now)
+function updateOrderStatus(orderId) {
+    showToast('Order status update feature coming soon', 'info');
+}
+
+// Update order details (stub for now)
+function updateOrderDetails() {
+    showToast('Order details update feature coming soon', 'info');
+}
+
+// Print order details (stub for now)
+function printOrderDetails() {
+    window.print();
+}
+
+// ==================== NEW ACTION FUNCTIONS ====================
+
+/**
+ * Edit order
+ */
+function editOrder(orderId) {
+    const order = orders.find(o => o.orderId === orderId);
+    if (!order) {
+        showToast('Order not found', 'error');
+        return;
+    }
+
+    // For now, show a preview in modal
+    Swal.fire({
+        title: 'Edit Order',
+        html: `
+            <div class="text-start">
+                <p><strong>Order Code:</strong> ${order.orderCode}</p>
+                <p><strong>Status:</strong> ${order.status}</p>
+                <p><strong>Customer:</strong> ${order.customerName || 'Walk-in'}</p>
+                <p><strong>Grand Total:</strong> Rs. ${formatNumber(order.grandTotal)}</p>
+            </div>
+            <p class="text-muted mt-3">Full edit functionality coming soon!</p>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Close'
+    });
+}
+
+/**
+ * Complete/Mark order as done
+ */
+async function completeOrder(orderId) {
     const result = await Swal.fire({
-        title: 'Update Order Status',
+        title: 'Mark Order as Complete?',
+        text: 'Are you sure you want to mark this order as completed?',
         icon: 'question',
-        input: 'select',
-        inputOptions: {
-            'PENDING': 'Pending',
-            'CONFIRMED': 'Confirmed',
-            'PROCESSING': 'Processing',
-            'COMPLETED': 'Completed',
-            'CANCELLED': 'Cancelled'
-        },
-        inputPlaceholder: 'Select new status',
         showCancelButton: true,
-        confirmButtonText: 'Update',
-        confirmButtonColor: '#22C55E',
-        inputValidator: (value) => {
-            if (!value) {
-                return 'Please select a status'
-            }
-        }
+        confirmButtonText: 'Yes, Complete It',
+        confirmButtonColor: '#28a745',
+        cancelButtonText: 'Cancel'
     });
 
     if (!result.isConfirmed) return;
 
     try {
+        showLoadingSpinner();
+
+        // Status ID mapping
+        // PENDING = 1, CONFIRMED = 2, PROCESSING = 3, COMPLETED = 4, CANCELLED = 5
         const response = await fetch(`${API_BASE_URL}/${orderId}/status`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                statusId: getStatusId(result.value),
-                notes: null
+                statusId: 4,  // COMPLETED status ID
+                notes: 'Order completed by staff'
             })
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to update status');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to update order status');
         }
 
-        showToast('Order status updated successfully!', 'success');
-        loadOrders();
+        showToast('Order marked as completed ✓', 'success');
+        loadOrders(); // Reload orders list
+        hideLoadingSpinner();
 
     } catch (error) {
-        console.error('Error updating status:', error);
-        showToast(error.message || 'Failed to update status', 'error');
+        console.error('Error completing order:', error);
+        hideLoadingSpinner();
+        showToast('Failed to complete order: ' + error.message, 'error');
     }
 }
 
-// Get status ID from status name (simplified mapping)
-function getStatusId(statusName) {
-    const statusMap = {
-        'PENDING': 1,
-        'CONFIRMED': 2,
-        'PROCESSING': 3,
-        'COMPLETED': 4,
-        'CANCELLED': 5
-    };
-    return statusMap[statusName] || 1;
-}
-
-// Apply discount code
-function applyDiscountCode() {
-    const discountCode = document.getElementById('discountCode')?.value;
-    if (!discountCode) {
-        showToast('Please enter a discount code', 'warning');
-        return;
-    }
-
-    // TODO: Implement discount code validation with backend
-    showToast('Discount code feature coming soon!', 'info');
-}
-
-// Clear order form
-function clearOrderForm() {
-    const form = document.getElementById('orderForm');
-    if (form) form.reset();
-
-    document.getElementById('customer').selectedIndex = 0;
-    document.getElementById('orderType').value = 'WALK_IN';
-    document.getElementById('availableLoyaltyPoints').textContent = '0';
-    document.getElementById('orderItemsBody').innerHTML = '';
-
-    document.getElementById('subtotalDisplay').textContent = 'Rs. 0.00';
-    document.getElementById('loyaltyDiscountDisplay').textContent = '- Rs. 0.00';
-    document.getElementById('grandTotalDisplay').textContent = 'Rs. 0.00';
-
-    editingOrderId = null;
-
-    // Reset modal title
-    document.getElementById('modalOrderFormLabel').innerHTML =
-        '<i class="fas fa-shopping-cart me-2"></i>New Order';
-}
-
-// Export order data
-function exportOrderData() {
-    if (orders.length === 0) {
-        showToast('No orders to export', 'info');
-        return;
-    }
-
-    const csv = generateOrdersCSV();
-    downloadCSV(csv, `orders_${new Date().toISOString().split('T')[0]}.csv`);
-    showToast('Orders exported successfully!', 'success');
-}
-
-// Generate CSV from orders
-function generateOrdersCSV() {
-    const headers = ['Order Code', 'Customer', 'Order Type', 'Items', 'Subtotal', 'Tax',
-        'Delivery', 'Discount', 'Grand Total', 'Status', 'Created At'];
-
-    let csv = headers.join(',') + '\n';
-
-    orders.forEach(order => {
-        const row = [
-            order.orderCode,
-            `"${order.customerName || 'Walk-in'}"`,
-            order.orderType,
-            order.items?.length || 0,
-            order.subtotal || 0,
-            order.taxAmount || 0,
-            order.deliveryCharge || 0,
-            order.discountAmount || 0,
-            order.grandTotal || 0,
-            order.status,
-            order.createdAt || ''
-        ];
-        csv += row.join(',') + '\n';
+/**
+ * Delete order
+ */
+async function deleteOrder(orderId) {
+    const result = await Swal.fire({
+        title: 'Delete Order?',
+        text: 'Are you sure you want to delete this order? This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete It',
+        confirmButtonColor: '#dc3545',
+        cancelButtonText: 'Cancel'
     });
 
-    return csv;
-}
+    if (!result.isConfirmed) return;
 
-// Download CSV file
-function downloadCSV(csvContent, filename) {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+    try {
+        showLoadingSpinner();
+        const response = await fetch(`${API_BASE_URL}/${orderId}`, {
+            method: 'DELETE'
+        });
 
-// Bulk status update
-function bulkStatusUpdate() {
-    showToast('Bulk status update feature coming soon!', 'info');
-}
+        if (!response.ok) throw new Error('Failed to delete order');
 
-// Print order details
-function printOrderDetails() {
-    window.print();
-}
+        showToast('Order deleted successfully', 'success');
+        loadOrders(); // Reload orders list
+        hideLoadingSpinner();
 
-// Helper: Show loading spinner
-function showLoadingSpinner() {
-    console.log('Loading...');
-}
-
-// Helper: Hide loading spinner
-function hideLoadingSpinner() {
-    console.log('Loading complete');
-}
-
-// Helper: Show button loading state
-function showButtonLoading(buttonId) {
-    const btn = document.getElementById(buttonId);
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+    } catch (error) {
+        console.error('Error deleting order:', error);
+        hideLoadingSpinner();
+        showToast('Failed to delete order. ' + error.message, 'error');
     }
 }
 
-// Helper: Hide button loading state
-function hideButtonLoading(buttonId) {
-    const btn = document.getElementById(buttonId);
-    if (btn) {
-        btn.disabled = false;
-        if (buttonId === 'btnSubmitOrder') {
-            btn.innerHTML = '<i class="fas fa-shopping-cart"></i> Create Order';
-        }
+/**
+ * Download order bill/invoice
+ */
+async function downloadOrderBill(orderId) {
+    try {
+        showLoadingSpinner();
+        const response = await fetch(`${API_BASE_URL}/${orderId}`);
+
+        if (!response.ok) throw new Error('Failed to load order');
+
+        const result = await response.json();
+        const order = result.data;
+        hideLoadingSpinner();
+
+        // Generate bill content
+        const billContent = generateBillHTML(order);
+
+        // Create a new window for printing
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(billContent);
+        printWindow.document.close();
+
+        // Trigger print dialog after a short delay
+        setTimeout(() => {
+            printWindow.print();
+        }, 250);
+
+    } catch (error) {
+        console.error('Error downloading bill:', error);
+        hideLoadingSpinner();
+        showToast('Failed to download bill. ' + error.message, 'error');
     }
 }
 
-// Helper: Show alert notification (Centered Modal)
-function showToast(message, type = 'info') {
-    const iconMap = {
-        success: 'success',
-        error: 'error',
-        warning: 'warning',
-        info: 'info'
-    };
-
-    const titleMap = {
-        success: 'Success!',
-        error: 'Error!',
-        warning: 'Warning!',
-        info: 'Information'
-    };
-
-    Swal.fire({
-        icon: iconMap[type] || 'info',
-        title: titleMap[type] || 'Notification',
-        text: message,
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#22C55E',
-        timer: 3000,
-        timerProgressBar: true
-    });
-}
-
-// Helper: Format number with 2 decimals
-function formatNumber(num) {
-    return parseFloat(num || 0).toLocaleString('en-LK', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-}
-
-// Helper: Format date and time
-function formatDateTime(dateTimeString) {
-    if (!dateTimeString) return '-';
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('en-LK', {
+/**
+ * Generate HTML bill for printing
+ */
+function generateBillHTML(order) {
+    const currentDate = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
+        month: '2-digit',
+        day: '2-digit'
     });
+
+    const itemsHTML = order.items.map(item => `
+        <tr>
+            <td>${item.productName}</td>
+            <td style="text-align: center;">${item.quantity}</td>
+            <td style="text-align: right;">Rs. ${formatNumber(item.unitPrice)}</td>
+            <td style="text-align: right;">Rs. ${formatNumber(item.lineTotal)}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Invoice - ${order.orderCode}</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                body {
+                    font-family: Arial, sans-serif;
+                    color: #333;
+                }
+                .invoice-container {
+                    max-width: 800px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                }
+                .header {
+                    text-align: center;
+                    border-bottom: 2px solid #28a745;
+                    padding-bottom: 20px;
+                    margin-bottom: 20px;
+                }
+                .header h1 {
+                    color: #28a745;
+                    font-size: 28px;
+                }
+                .header p {
+                    margin: 5px 0;
+                    color: #666;
+                }
+                .invoice-info {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 30px;
+                    font-size: 14px;
+                }
+                .invoice-info div {
+                    flex: 1;
+                }
+                .invoice-info strong {
+                    display: block;
+                    color: #28a745;
+                    margin-bottom: 5px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 30px;
+                }
+                th {
+                    background-color: #28a745;
+                    color: white;
+                    padding: 10px;
+                    text-align: left;
+                    font-weight: bold;
+                }
+                td {
+                    padding: 10px;
+                    border-bottom: 1px solid #eee;
+                }
+                .summary {
+                    float: right;
+                    width: 40%;
+                    padding: 15px;
+                    background-color: #f5f5f5;
+                    border: 1px solid #ddd;
+                    margin-bottom: 20px;
+                }
+                .summary-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 8px 0;
+                }
+                .summary-row.total {
+                    border-top: 2px solid #28a745;
+                    padding-top: 10px;
+                    font-weight: bold;
+                    font-size: 16px;
+                    color: #28a745;
+                }
+                .footer {
+                    clear: both;
+                    text-align: center;
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 1px solid #ddd;
+                    color: #666;
+                    font-size: 12px;
+                }
+                .thank-you {
+                    text-align: center;
+                    font-weight: bold;
+                    color: #28a745;
+                    margin: 20px 0;
+                }
+                @media print {
+                    body {
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .invoice-container {
+                        border: none;
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="invoice-container">
+                <div class="header">
+                    <h1>📋 INVOICE</h1>
+                    <p>Sampath Grocery Store</p>
+                </div>
+
+                <div class="invoice-info">
+                    <div>
+                        <strong>Invoice Details</strong>
+                        <p>Invoice #: ${order.orderCode}</p>
+                        <p>Date: ${currentDate}</p>
+                        <p>Order Type: ${order.orderType === 'WALK_IN' ? '🏪 Walk-In' : '🌐 Online'}</p>
+                    </div>
+                    <div>
+                        <strong>Customer</strong>
+                        <p>${order.customerName || 'Walk-in Customer'}</p>
+                        ${order.fulfillmentType ? `<p>Fulfillment: ${order.fulfillmentType === 'DELIVERY' ? '🚚 Delivery' : '🏪 Pickup'}</p>` : ''}
+                        ${order.deliveryCity ? `<p>Location: ${order.deliveryCity}</p>` : ''}
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th style="text-align: center;">Quantity</th>
+                            <th style="text-align: right;">Unit Price</th>
+                            <th style="text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHTML}
+                    </tbody>
+                </table>
+
+                <div class="summary">
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span>Rs. ${formatNumber(order.subtotal || order.grandTotal)}</span>
+                    </div>
+                    ${order.taxAmount ? `
+                        <div class="summary-row">
+                            <span>Tax:</span>
+                            <span>Rs. ${formatNumber(order.taxAmount)}</span>
+                        </div>
+                    ` : ''}
+                    ${order.discountAmount ? `
+                        <div class="summary-row">
+                            <span>Discount:</span>
+                            <span>- Rs. ${formatNumber(order.discountAmount)}</span>
+                        </div>
+                    ` : ''}
+                    <div class="summary-row total">
+                        <span>Grand Total:</span>
+                        <span>Rs. ${formatNumber(order.grandTotal)}</span>
+                    </div>
+                </div>
+
+                <div class="thank-you">
+                    ✨ Thank You for Your Purchase! ✨
+                </div>
+
+                <div class="footer">
+                    <p>Sampath Grocery Store | Colombo, Sri Lanka</p>
+                    <p>Invoice generated on ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
 }

@@ -83,6 +83,19 @@ public class Order {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fulfillment_type", length = 20)
+    private FulfillmentType fulfillmentType = FulfillmentType.PICKUP;
+
+    @Column(name = "delivery_address")
+    private String deliveryAddress;
+
+    @Column(name = "delivery_city")
+    private String deliveryCity;
+
+    @Column(name = "delivery_phone")
+    private String deliveryPhone;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -106,6 +119,14 @@ public class Order {
         WALK_IN, // POS orders - walk-in customers
         ONLINE, // Online shopping orders
         PHONE // Phone orders
+    }
+
+    /**
+     * Fulfillment Type Enum
+     */
+    public enum FulfillmentType {
+        PICKUP, // Customer picks up from store
+        DELIVERY // Delivered to customer
     }
 
     /**

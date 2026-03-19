@@ -134,7 +134,8 @@ public class UnitOfMeasureService {
         UnitOfMeasure unit = unitOfMeasureRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Unit not found with id: " + id));
 
-        unit.setStatus(unit.getStatus() == UnitOfMeasure.Status.ACTIVE ? UnitOfMeasure.Status.INACTIVE : UnitOfMeasure.Status.ACTIVE);
+        unit.setStatus(unit.getStatus() == UnitOfMeasure.Status.ACTIVE ? UnitOfMeasure.Status.INACTIVE
+                : UnitOfMeasure.Status.ACTIVE);
         unit.setUpdatedBy(updatedBy);
 
         unit = unitOfMeasureRepository.save(unit);

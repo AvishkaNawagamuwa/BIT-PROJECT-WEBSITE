@@ -63,7 +63,7 @@ public class Product {
     @JoinColumn(name = "unit_id", nullable = false)
     private UnitOfMeasure unit;
 
-    // Old unit enum field - kept for backward compatibility during migration  
+    // Old unit enum field - kept for backward compatibility during migration
     @Enumerated(EnumType.STRING)
     @Column(name = "unit_of_measure_legacy", length = 10, insertable = false, updatable = false)
     private UnitOfMeasureLegacy unitOfMeasureLegacy;

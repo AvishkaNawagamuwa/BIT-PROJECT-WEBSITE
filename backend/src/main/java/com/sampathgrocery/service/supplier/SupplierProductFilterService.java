@@ -70,11 +70,16 @@ public class SupplierProductFilterService {
                             sp.getProduct().getCategory() != null ? sp.getProduct().getCategory().getCategoryName()
                                     : null);
                     response.setBarcode(sp.getProduct().getBarcode());
-                    response.setBrandId(sp.getProduct().getBrand() != null ? sp.getProduct().getBrand().getBrandId() : null);
-                    response.setBrandName(sp.getProduct().getBrand() != null ? sp.getProduct().getBrand().getBrandName() : null);
-                    response.setUnitId(sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitId() : null);
-                    response.setUnitCode(sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitCode() : null);
-                    response.setUnitName(sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitName() : null);
+                    response.setBrandId(
+                            sp.getProduct().getBrand() != null ? sp.getProduct().getBrand().getBrandId() : null);
+                    response.setBrandName(
+                            sp.getProduct().getBrand() != null ? sp.getProduct().getBrand().getBrandName() : null);
+                    response.setUnitId(
+                            sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitId() : null);
+                    response.setUnitCode(
+                            sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitCode() : null);
+                    response.setUnitName(
+                            sp.getProduct().getUnit() != null ? sp.getProduct().getUnit().getUnitName() : null);
                     response.setIsActive(sp.getProduct().getIsActive());
                     return response;
                 })

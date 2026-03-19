@@ -17,93 +17,129 @@ import java.util.Optional;
 @Repository
 public interface ProductBatchRepository extends JpaRepository<ProductBatch, Integer> {
 
-    /**
-     * Find batch by batch code
-     */
-    Optional<ProductBatch> findByBatchCode(String batchCode);
+        /**
+         * Find batch by batch code
+         */
+        Optional<ProductBatch> findByBatchCode(String batchCode);
 
-    /**
-     * Find all batches for a product
-     */
-    List<ProductBatch> findByProductProductId(Integer productId);
+        /**
+         * Find all batches for a product
+         */
+        List<ProductBatch> findByProductProductId(Integer productId);
 
-    /**
-     * Find active batches for a product (FIFO - ordered by expiry date)
-     */
-    @Query("SELECT b FROM ProductBatch b WHERE " +
-            "b.product.productId = :productId " +
-            "AND b.isActive = true " +
-            "AND b.stockQuantity > 0 " +
-            "ORDER BY b.expiryDate ASC, b.receivedDate ASC")
-    List<ProductBatch> findActiveByProductOrderByExpiryDate(@Param("productId") Integer productId);
+        /**
+         * Find active batches for a product (FIFO - ordered by expiry date)
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.product.productId = :productId " +
+                        "AND b.isActive = true " +
+                        "AND b.stockQuantity > 0 " +
+                        "ORDER BY b.expiryDate ASC, b.receivedDate ASC")
+        List<ProductBatch> findActiveByProductOrderByExpiryDate(@Param("productId") Integer productId);
 
-    /**
-     * Find batches expiring soon (within days)
-     */
-    @Query("SELECT b FROM ProductBatch b WHERE " +
-            "b.isActive = true " +
-            "AND b.stockQuantity > 0 " +
-            "AND b.expiryDate IS NOT NULL " +
-            "AND b.expiryDate BETWEEN :today AND :expiryDate " +
-            "ORDER BY b.expiryDate ASC")
-    List<ProductBatch> findBatchesExpiringSoon(
-            @Param("today") LocalDate today,
-            @Param("expiryDate") LocalDate expiryDate);
+        /**
+         * Find batches expiring soon (within days)
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.isActive = true " +
+                        "AND b.stockQuantity > 0 " +
+                        "AND b.expiryDate IS NOT NULL " +
+                        "AND b.expiryDate BETWEEN :today AND :expiryDate " +
+                        "ORDER BY b.expiryDate ASC")
+        List<ProductBatch> findBatchesExpiringSoon(
+                        @Param("today") LocalDate today,
+                        @Param("expiryDate") LocalDate expiryDate);
 
-    /**
-     * Find expired batches
-     */
-    @Query("SELECT b FROM ProductBatch b WHERE " +
-            "b.isActive = true " +
-            "AND b.stockQuantity > 0 " +
-            "AND b.expiryDate IS NOT NULL " +
-            "AND b.expiryDate < :today")
-    List<ProductBatch> findExpiredBatches(@Param("today") LocalDate today);
+        /**
+         * Find expired batches
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.isActive = true " +
+                        "AND b.stockQuantity > 0 " +
+                        "AND b.expiryDate IS NOT NULL " +
+                        "AND b.expiryDate < :today")
+        List<ProductBatch> findExpiredBatches(@Param("today") LocalDate today);
 
-    /**
-     * Get total stock quantity for a product (across all batches)
-     */
-    @Query("SELECT COALESCE(SUM(b.stockQuantity), 0) FROM ProductBatch b WHERE " +
-            "b.product.productId = :productId " +
-            "AND b.isActive = true")
-    Integer getTotalStockByProduct(@Param("productId") Integer productId);
+        /**
+         * Get total stock quantity for a product (across all batches)
+         */
+        @Query("SELECT COALESCE(SUM(b.stockQuantity), 0) FROM ProductBatch b WHERE " +
+                        "b.product.productId = :productId " +
+                        "AND b.isActive = true")
+        Integer getTotalStockByProduct(@Param("productId") Integer productId);
 
-    /**
-     * Find batches by supplier
-     */
-    List<ProductBatch> findBySupplierSupplierId(Integer supplierId);
+        /**
+         * Find batches by supplier
+         */
+        List<ProductBatch> findBySupplierSupplierId(Integer supplierId);
 
-    /**
-     * Search batches with filters
-     */
-    @Query("SELECT b FROM ProductBatch b WHERE " +
-            "(:productId IS NULL OR b.product.productId = :productId) " +
-            "AND (:status IS NULL OR b.status = :status) " +
-            "AND (:expiryFrom IS NULL OR b.expiryDate >= :expiryFrom) " +
-            "AND (:expiryTo IS NULL OR b.expiryDate <= :expiryTo) " +
-            "AND b.isActive = true " +
-            "ORDER BY b.expiryDate ASC")
-    List<ProductBatch> searchBatches(
-            @Param("productId") Integer productId,
-            @Param("status") ProductBatch.BatchStatus status,
-            @Param("expiryFrom") LocalDate expiryFrom,
-            @Param("expiryTo") LocalDate expiryTo);
+        /**
+         * Search batches with filters
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "(:productId IS NULL OR b.product.productId = :productId) " +
+                        "AND (:status IS NULL OR b.status = :status) " +
+                        "AND (:expiryFrom IS NULL OR b.expiryDate >= :expiryFrom) " +
+                        "AND (:expiryTo IS NULL OR b.expiryDate <= :expiryTo) " +
+                        "AND b.isActive = true " +
+                        "ORDER BY b.expiryDate ASC")
+        List<ProductBatch> searchBatches(
+                        @Param("productId") Integer productId,
+                        @Param("status") ProductBatch.BatchStatus status,
+                        @Param("expiryFrom") LocalDate expiryFrom,
+                        @Param("expiryTo") LocalDate expiryTo);
 
-    /**
-     * Calculate total stock value (purchase price based)
-     */
-    @Query("SELECT COALESCE(SUM(b.stockQuantity * b.purchasePrice), 0) FROM ProductBatch b WHERE b.isActive = true")
-    Double getTotalStockValue();
+        /**
+         * Calculate total stock value (purchase price based)
+         */
+        @Query("SELECT COALESCE(SUM(b.stockQuantity * b.purchasePrice), 0) FROM ProductBatch b WHERE b.isActive = true")
+        Double getTotalStockValue();
 
-    /**
-     * Get the last batch code for auto-generation
-     */
-    @Query("SELECT b.batchCode FROM ProductBatch b ORDER BY b.batchId DESC LIMIT 1")
-    Optional<String> findLastBatchCode();
+        /**
+         * Get the last batch code for auto-generation
+         */
+        @Query("SELECT b.batchCode FROM ProductBatch b ORDER BY b.batchId DESC LIMIT 1")
+        Optional<String> findLastBatchCode();
 
-    /**
-     * Find most recent batch for a product (for getting last purchase/selling
-     * price)
-     */
-    Optional<ProductBatch> findTopByProductProductIdOrderByReceivedDateDesc(Integer productId);
+        /**
+         * Find batch by barcode
+         */
+        Optional<ProductBatch> findByBarcode(String barcode);
+
+        /**
+         * Find active batches by barcode (FIFO - ordered by expiry date)
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.barcode = :barcode " +
+                        "AND b.isActive = true " +
+                        "AND b.stockQuantity > 0 " +
+                        "ORDER BY b.expiryDate ASC, b.receivedDate ASC")
+        List<ProductBatch> findActiveByBarcodeOrderByExpiryDate(@Param("barcode") String barcode);
+
+        /**
+         * Search batches by barcode with product filter
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.barcode = :barcode " +
+                        "AND b.product.productId = :productId " +
+                        "AND b.isActive = true")
+        Optional<ProductBatch> findByBarcodeAndProduct(
+                        @Param("barcode") String barcode,
+                        @Param("productId") Integer productId);
+
+        /**
+         * Get batch with pricing info by barcode
+         */
+        @Query("SELECT b FROM ProductBatch b WHERE " +
+                        "b.barcode = :barcode " +
+                        "AND b.isActive = true " +
+                        "AND b.stockQuantity > 0 " +
+                        "ORDER BY b.expiryDate ASC LIMIT 1")
+        Optional<ProductBatch> findLatestActiveBatchByBarcode(@Param("barcode") String barcode);
+
+        /**
+         * Find most recent batch for a product (for getting last purchase/selling
+         * price)
+         */
+        Optional<ProductBatch> findTopByProductProductIdOrderByReceivedDateDesc(Integer productId);
 }

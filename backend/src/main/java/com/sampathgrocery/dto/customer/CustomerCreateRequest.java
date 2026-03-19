@@ -36,4 +36,7 @@ public class CustomerCreateRequest {
 
     @Size(max = 100, message = "City cannot exceed 100 characters")
     private String city;
+
+    @Size(max = 20, message = "NIC cannot exceed 20 characters")
+    private String nic;
 }

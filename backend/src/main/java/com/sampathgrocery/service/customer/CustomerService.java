@@ -53,6 +53,12 @@ public class CustomerService {
             throw new BusinessRuleViolationException("Email already registered");
         }
 
+        // Validate NIC uniqueness if provided
+        if (request.getNic() != null && !request.getNic().isEmpty() &&
+                customerRepository.existsByNic(request.getNic())) {
+            throw new BusinessRuleViolationException("NIC already registered");
+        }
+
         // Generate customer code
         String lastCode = customerRepository.findLatestCustomerCode();
         String customerCode = CodeGenerator.generateCustomerCode(lastCode);
@@ -66,6 +72,7 @@ public class CustomerService {
         customer.setAddress(request.getAddress());
         customer.setCity(request.getCity());
         customer.setLoyaltyPoints(0);
+        customer.setNic(request.getNic());
         customer.setLoyaltyTier(Customer.LoyaltyTier.BRONZE);
         customer.setTotalPurchases(BigDecimal.ZERO);
         customer.setTotalOrders(0);
@@ -146,6 +153,14 @@ public class CustomerService {
         if (updatedBy != null) {
             User updater = userRepository.findById(updatedBy).orElse(null);
             customer.setUpdatedBy(updater);
+        }
+        if (request.getNic() != null) {
+            customerRepository.findByNic(request.getNic()).ifPresent(c -> {
+                if (!c.getCustomerId().equals(customerId)) {
+                    throw new BusinessRuleViolationException("NIC already used by another customer");
+                }
+            });
+            customer.setNic(request.getNic());
         }
 
         Customer updatedCustomer = customerRepository.save(customer);
@@ -362,6 +377,7 @@ public class CustomerService {
         response.setAddress(customer.getAddress());
         response.setCity(customer.getCity());
         response.setLoyaltyCardNumber(customer.getLoyaltyCardNumber());
+        response.setNic(customer.getNic());
         response.setLoyaltyPoints(customer.getLoyaltyPoints());
         response.setLoyaltyTier(customer.getLoyaltyTier().name());
         response.setTotalPurchases(customer.getTotalPurchases());

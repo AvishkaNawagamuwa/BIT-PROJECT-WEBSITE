@@ -7,6 +7,7 @@ let cartItems = [];
 let selectedCustomer = null;
 let products = [];
 let currentDateTime = null;
+let loyaltyPointsAvailable = 0;
 
 // Initialize POS System
 document.addEventListener('DOMContentLoaded', function () {
@@ -60,21 +61,11 @@ function setupEventListeners() {
         }
     });
 
-    // Product Search
-    document.getElementById('productSearch').addEventListener('input', function () {
-        searchProducts(this.value);
-    });
-
-    // Walk-in Customer Checkbox
-    document.getElementById('walkInCustomer').addEventListener('change', function () {
-        const customerSection = document.getElementById('customerSearchSection');
-        if (this.checked) {
-            customerSection.style.display = 'none';
-            selectedCustomer = null;
-            document.getElementById('selectedCustomerInfo').style.display = 'none';
-        } else {
-            customerSection.style.display = 'block';
-        }
+    // Customer Type Radio Buttons
+    document.querySelectorAll('input[name="customerType"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            handleCustomerTypeChange(this.value);
+        });
     });
 
     // Payment Method Selection
@@ -88,8 +79,14 @@ function setupEventListeners() {
     document.querySelectorAll('.payment-method-card').forEach(card => {
         card.addEventListener('click', function () {
             const method = this.getAttribute('data-method');
+
+            // Check if loyalty is disabled
+            if (method === 'loyalty' && document.getElementById('paymentLoyalty').disabled) {
+                return;
+            }
+
             const radio = document.getElementById('payment' + method.charAt(0).toUpperCase() + method.slice(1));
-            if (radio) {
+            if (radio && !radio.disabled) {
                 radio.checked = true;
                 handlePaymentMethodChange(method);
             }
@@ -99,18 +96,13 @@ function setupEventListeners() {
     // Amount Tendered for Change Calculation
     document.getElementById('amountTendered').addEventListener('input', calculateChange);
 
+    // Loyalty Points Usage
+    document.getElementById('loyaltyPointsUsed').addEventListener('input', calculateLoyaltyPayable);
+
     // Discount Calculation
     document.getElementById('discountValue').addEventListener('input', updateCartSummary);
     document.querySelectorAll('input[name="discountType"]').forEach(radio => {
         radio.addEventListener('change', updateCartSummary);
-    });
-
-    // Quick Add Buttons
-    document.querySelectorAll('.quick-add-btn').forEach(button => {
-        button.addEventListener('click', function () {
-            const productName = this.getAttribute('data-product');
-            quickAddProduct(productName);
-        });
     });
 }
 
@@ -122,101 +114,208 @@ function loadCashierInfo() {
     }
 }
 
-// Load Products from LocalStorage
+// Load Products from Backend API
 function loadProducts() {
-    const storedProducts = localStorage.getItem('products');
-    if (storedProducts) {
-        products = JSON.parse(storedProducts);
-        console.log('Loaded products:', products.length);
-    } else {
-        // Sample Products for Demo
-        products = [
-            {
-                id: 1,
-                barcode: '1001',
-                name: 'White Bread',
-                category: 'Bakery',
-                unitPrice: 120.00,
-                stockQuantity: 50,
-                batch: 'B001',
-                expiryDate: '2025-12-31'
-            },
-            {
-                id: 2,
-                barcode: '1002',
-                name: 'Fresh Milk 1L',
-                category: 'Dairy',
-                unitPrice: 350.00,
-                stockQuantity: 30,
-                batch: 'B002',
-                expiryDate: '2025-12-25'
-            },
-            {
-                id: 3,
-                barcode: '1003',
-                name: 'Farm Eggs (12pcs)',
-                category: 'Dairy',
-                unitPrice: 450.00,
-                stockQuantity: 40,
-                batch: 'B003',
-                expiryDate: '2025-12-28'
-            },
-            {
-                id: 4,
-                barcode: '1004',
-                name: 'Basmati Rice 5kg',
-                category: 'Grains',
-                unitPrice: 1800.00,
-                stockQuantity: 25,
-                batch: 'B004',
-                expiryDate: '2026-06-30'
-            },
-            {
-                id: 5,
-                barcode: '1005',
-                name: 'Mineral Water 1.5L',
-                category: 'Beverages',
-                unitPrice: 80.00,
-                stockQuantity: 100,
-                batch: 'B005',
-                expiryDate: '2026-12-31'
-            },
-            {
-                id: 6,
-                barcode: '1006',
-                name: 'White Sugar 1kg',
-                category: 'Groceries',
-                unitPrice: 200.00,
-                stockQuantity: 60,
-                batch: 'B006',
-                expiryDate: '2026-03-31'
+    // Try to fetch from backend API first
+    fetch('/api/products')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('API Error: ' + response.status);
             }
-        ];
-        localStorage.setItem('products', JSON.stringify(products));
-    }
+            return response.json();
+        })
+        .then(data => {
+            if (Array.isArray(data)) {
+                products = data;
+                console.log('Loaded products from API:', products.length);
+            } else if (data.content && Array.isArray(data.content)) {
+                products = data.content;
+                console.log('Loaded products from API (pagination):', products.length);
+            } else {
+                throw new Error('Invalid API response');
+            }
+            localStorage.setItem('products', JSON.stringify(products));
+        })
+        .catch(error => {
+            console.log('API failed, checking localStorage...');
+            const storedProducts = localStorage.getItem('products');
+            if (storedProducts) {
+                products = JSON.parse(storedProducts);
+                console.log('Loaded products from localStorage:', products.length);
+            } else {
+                // Fallback to sample products
+                loadSampleProducts();
+            }
+        });
+}
+
+// Load Sample Products (Fallback)
+function loadSampleProducts() {
+    products = [
+        {
+            id: 1,
+            barcode: '1001',
+            name: 'White Bread',
+            category: 'Bakery',
+            unitPrice: 120.00,
+            stockQuantity: 50,
+            batch: 'B001',
+            expiryDate: '2025-12-31'
+        },
+        {
+            id: 2,
+            barcode: '1002',
+            name: 'Fresh Milk 1L',
+            category: 'Dairy',
+            unitPrice: 350.00,
+            stockQuantity: 30,
+            batch: 'B002',
+            expiryDate: '2025-12-25'
+        },
+        {
+            id: 3,
+            barcode: '1003',
+            name: 'Farm Eggs (12pcs)',
+            category: 'Dairy',
+            unitPrice: 450.00,
+            stockQuantity: 40,
+            batch: 'B003',
+            expiryDate: '2025-12-28'
+        },
+        {
+            id: 4,
+            barcode: '1004',
+            name: 'Basmati Rice 5kg',
+            category: 'Grains',
+            unitPrice: 1800.00,
+            stockQuantity: 25,
+            batch: 'B004',
+            expiryDate: '2026-06-30'
+        },
+        {
+            id: 5,
+            barcode: '1005',
+            name: 'Mineral Water 1.5L',
+            category: 'Beverages',
+            unitPrice: 80.00,
+            stockQuantity: 100,
+            batch: 'B005',
+            expiryDate: '2026-12-31'
+        },
+        {
+            id: 6,
+            barcode: '1006',
+            name: 'White Sugar 1kg',
+            category: 'Groceries',
+            unitPrice: 200.00,
+            stockQuantity: 60,
+            batch: 'B006',
+            expiryDate: '2026-03-31'
+        }
+    ];
+    localStorage.setItem('products', JSON.stringify(products));
+    console.log('Loaded sample products (fallback):', products.length);
 }
 
 // Add Product by Barcode
+// NEW: Uses batch barcode API to get product and pricing information
 function addProductByBarcode(barcode) {
-    const product = products.find(p => p.barcode === barcode);
+    console.log('🔍 Scanning barcode from product_batch:', barcode);
 
-    if (product) {
-        if (product.stockQuantity <= 0) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Out of Stock',
-                text: `${product.name} is currently out of stock!`,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-            return;
-        }
+    // Try to fetch from batch barcode endpoint first (new method)
+    fetch(`/api/batches/barcode/${barcode}/pricing`)
+        .then(response => {
+            console.log('API Response Status:', response.status);
+            if (!response.ok) {
+                throw new Error('Barcode not found in batches');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Batch API Response:', data);
 
+            if (data.success && data.data) {
+                // Map batch pricing response to our cart format
+                const batchData = data.data;
+                const product = {
+                    id: batchData.productId,
+                    batchId: batchData.batchId,
+                    barcode: batchData.barcode,
+                    name: batchData.productName,
+                    category: batchData.category || 'Mixed',
+                    unitPrice: batchData.sellingPrice ? parseFloat(batchData.sellingPrice) : 0,
+                    purchasePrice: batchData.purchasePrice ? parseFloat(batchData.purchasePrice) : 0,
+                    mrp: batchData.mrp ? parseFloat(batchData.mrp) : 0,
+                    stockQuantity: batchData.stockQuantity || 0,
+                    batchCode: batchData.batchCode,
+                    expiryDate: batchData.expiryDate || 'N/A',
+                    supplierName: batchData.supplierName || 'N/A',
+                    productCode: batchData.productCode || ''
+                };
+
+                console.log('✅ Product found from barcode batch:', product);
+                handleProductFound(product);
+            } else {
+                console.log('❌ Invalid response format from batch API');
+                showProductNotFound(barcode);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Batch API Error:', error);
+
+            // Fallback: Try old product barcode endpoint for backward compatibility
+            console.log('⚠️ Falling back to product barcode endpoint...');
+            fetch(`/api/products/barcode/${barcode}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Product not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Product API Response:', data);
+
+                    if (data.success && data.data) {
+                        const apiProduct = data.data;
+                        const product = {
+                            id: apiProduct.productId,
+                            barcode: apiProduct.barcode,
+                            name: apiProduct.productName,
+                            category: apiProduct.categoryName || 'Uncategorized',
+                            unitPrice: apiProduct.sellingPrice ? parseFloat(apiProduct.sellingPrice) : 0,
+                            stockQuantity: apiProduct.totalStock || 0,
+                            batch: apiProduct.brandName || 'N/A',
+                            expiryDate: apiProduct.expiryDate || 'N/A',
+                            unitName: apiProduct.unitName || 'Unit'
+                        };
+
+                        console.log('✅ Product found from product endpoint:', product);
+                        handleProductFound(product);
+                    } else {
+                        showProductNotFound(barcode);
+                    }
+                })
+                .catch(fallbackError => {
+                    console.error('❌ Fallback Product API Error:', fallbackError);
+                    showProductNotFound(barcode);
+                });
+        });
+}
+
+// Handle Product Found
+function handleProductFound(product) {
+    if (product.stockQuantity <= 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Out of Stock',
+            text: `${product.name} is currently out of stock!`,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    } else {
         addToCart(product);
-
-        // Success sound/feedback
         Swal.fire({
             icon: 'success',
             title: 'Added!',
@@ -226,19 +325,28 @@ function addProductByBarcode(barcode) {
             showConfirmButton: false,
             timer: 1500
         });
-    } else {
-        Swal.fire({
-            icon: 'error',
-            title: 'Not Found',
-            text: `No product found with barcode: ${barcode}`,
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000
-        });
     }
 
-    // Refocus on barcode input
+    // Clear input and refocus
+    document.getElementById('barcodeInput').value = '';
+    setTimeout(() => {
+        document.getElementById('barcodeInput').focus();
+    }, 100);
+}
+
+// Show Product Not Found
+function showProductNotFound(barcode) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Not Found',
+        text: `No product found with barcode: ${barcode}`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+    });
+
+    document.getElementById('barcodeInput').value = '';
     setTimeout(() => {
         document.getElementById('barcodeInput').focus();
     }, 100);
@@ -312,8 +420,8 @@ function quickAddProduct(productName) {
 
 // Add to Cart
 function addToCart(product) {
-    // Check if product already in cart
-    const existingItem = cartItems.find(item => item.id === product.id);
+    // Check if product already in cart (by batch to handle multiple batches)
+    const existingItem = cartItems.find(item => item.batchId === product.batchId);
 
     if (existingItem) {
         // Check stock
@@ -334,13 +442,18 @@ function addToCart(product) {
     } else {
         cartItems.push({
             id: product.id,
-            barcode: product.barcode,
+            batchId: product.batchId,                    // ✅ IMPORTANT for API
+            barcode: product.barcode,                    // ✅ IMPORTANT for stock deduction
             name: product.name,
-            batch: product.batch || 'N/A',
+            productCode: product.productCode || '',
+            batchCode: product.batchCode || 'N/A',
             unitPrice: product.unitPrice,
+            purchasePrice: product.purchasePrice || 0,
+            mrp: product.mrp || 0,
             quantity: 1,
             subtotal: product.unitPrice,
-            stockQuantity: product.stockQuantity
+            stockQuantity: product.stockQuantity,
+            expiryDate: product.expiryDate || 'N/A'
         });
     }
 
@@ -371,8 +484,14 @@ function updateCartDisplay() {
         html += `
             <tr>
                 <td>${index + 1}</td>
-                <td><strong>${item.name}</strong></td>
-                <td><span class="badge bg-secondary">${item.batch}</span></td>
+                <td>
+                    <strong>${item.name}</strong>
+                    <br><small class="text-muted">Batch: ${item.batchCode}</small>
+                </td>
+                <td>
+                    <span class="badge bg-info">${item.barcode}</span>
+                    <br><small>${item.expiryDate !== 'N/A' ? 'Exp: ' + item.expiryDate : ''}</small>
+                </td>
                 <td>Rs. ${item.unitPrice.toFixed(2)}</td>
                 <td>
                     <div class="qty-control">
@@ -389,7 +508,7 @@ function updateCartDisplay() {
                 </td>
                 <td><strong>Rs. ${item.subtotal.toFixed(2)}</strong></td>
                 <td>
-                    <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})">
+                    <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})" title="Remove item">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -511,17 +630,80 @@ function calculateChange() {
     }
 }
 
-// Handle Payment Method Change
-function handlePaymentMethodChange(method) {
-    // Update card styling
-    document.querySelectorAll('.payment-method-card').forEach(card => {
-        card.classList.remove('active');
-    });
-    document.querySelector(`.payment-method-card[data-method="${method}"]`).classList.add('active');
+// Search Customer by Phone Number
+async function searchCustomer() {
+    const searchValue = document.getElementById('customerSearchInput').value.trim();
 
-    // Show/hide relevant sections
-    document.getElementById('cashPaymentSection').style.display = method === 'cash' ? 'block' : 'none';
-    document.getElementById('cardPaymentSection').style.display = method === 'card' ? 'block' : 'none';
+    if (!searchValue) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Search Required',
+            text: 'Please enter phone number or card number to search',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+        return;
+    }
+
+    try {
+        // Call backend API to search customers
+        const response = await fetch(`/api/customers/search?q=${encodeURIComponent(searchValue)}`);
+        const data = await response.json();
+
+        if (response.ok && data.data && data.data.length > 0) {
+            const customer = data.data[0];
+
+            // Transform API response to match selectCustomer format
+            const formattedCustomer = {
+                id: customer.id,
+                name: customer.fullName,
+                phone: customer.phone,
+                loyaltyCardNumber: customer.loyaltyCardNumber,
+                loyaltyPoints: customer.loyaltyPoints || 0
+            };
+
+            selectCustomer(formattedCustomer);
+
+            // Display loyalty points
+            document.getElementById('availableLoyaltyPoints').textContent = formattedCustomer.loyaltyPoints;
+            document.getElementById('maxLoyaltyPoints').textContent = formattedCustomer.loyaltyPoints;
+            document.getElementById('paymentLoyalty').disabled = formattedCustomer.loyaltyPoints === 0;
+            loyaltyPointsAvailable = formattedCustomer.loyaltyPoints;
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Customer Found',
+                text: `Welcome ${formattedCustomer.name}!\nLoyalty Points: ${formattedCustomer.loyaltyPoints}`,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Not Found',
+                text: 'No customer found with that phone/card number',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        }
+    } catch (error) {
+        console.error('❌ Customer Search Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Search Failed',
+            text: 'Error searching customer: ' + error.message,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    }
 }
 
 // Clear Cart
@@ -621,15 +803,93 @@ function loadHeldSales() {
     console.log('Held sales feature ready');
 }
 
+// Handle Customer Type Change
+function handleCustomerTypeChange(type) {
+    const registeredSection = document.getElementById('registeredCustomerSection');
+
+    if (type === 'registered') {
+        registeredSection.style.display = 'block';
+    } else {
+        registeredSection.style.display = 'none';
+        selectedCustomer = null;
+        loyaltyPointsAvailable = 0;
+        document.getElementById('selectedCustomerInfo').style.display = 'none';
+        document.getElementById('customerSearchInput').value = '';
+
+        // Disable loyalty payment method
+        document.getElementById('paymentLoyalty').disabled = true;
+        document.querySelector('.payment-method-card[data-method="loyalty"]').style.opacity = '0.5';
+        document.querySelector('.payment-method-card[data-method="loyalty"]').style.pointerEvents = 'none';
+
+        // Update loyalty points section
+        document.getElementById('loyaltyPointsSection').style.display = 'none';
+        document.getElementById('loyaltyPointsUsed').value = '0';
+    }
+}
+
+// Handle Payment Method Change
+function handlePaymentMethodChange(method) {
+    // Update card styling
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+        const input = card.querySelector('input');
+        if (!input.disabled) {
+            card.classList.remove('active');
+        }
+    });
+
+    const activeCard = document.querySelector(`.payment-method-card[data-method="${method}"]`);
+    const activeInput = activeCard.querySelector('input');
+    if (!activeInput.disabled) {
+        activeCard.classList.add('active');
+    }
+
+    // Show/hide relevant sections
+    document.getElementById('cashPaymentSection').style.display = method === 'cash' ? 'block' : 'none';
+    document.getElementById('cardPaymentSection').style.display = method === 'card' ? 'block' : 'none';
+    document.getElementById('creditPaymentSection').style.display = method === 'credit' ? 'block' : 'none';
+
+    // Loyalty: no additional fields needed
+    if (method === 'loyalty') {
+        document.getElementById('loyaltyPointsSection').style.display = 'block';
+    } else {
+        document.getElementById('loyaltyPointsSection').style.display = 'none';
+    }
+}
+
+// Calculate Loyalty Payable Amount
+function calculateLoyaltyPayable() {
+    const grandTotalText = document.getElementById('cartGrandTotal').textContent;
+    const grandTotal = parseFloat(grandTotalText.replace('Rs. ', '').replace(',', ''));
+    const pointsUsed = parseInt(document.getElementById('loyaltyPointsUsed').value) || 0;
+    const maxPoints = parseInt(document.getElementById('maxLoyaltyPoints').textContent) || 0;
+
+    // Validate points
+    if (pointsUsed > maxPoints) {
+        document.getElementById('loyaltyPointsUsed').value = maxPoints;
+        return;
+    }
+
+    // Calculate payable
+    const payable = Math.max(0, grandTotal - pointsUsed);
+    document.getElementById('payableAmount').textContent = payable.toFixed(2);
+
+    // If points cover total, auto-select loyalty
+    if (payable === 0 && pointsUsed > 0) {
+        document.getElementById('paymentLoyalty').checked = true;
+        handlePaymentMethodChange('loyalty');
+    }
+}
+
 // Search Customer
 function searchCustomer() {
-    const searchValue = document.getElementById('customerSearchInput').value.trim();
+    const searchInput = document.getElementById('customerSearchInput');
+    const searchValue = searchInput.value.trim();
 
     if (!searchValue) {
         Swal.fire({
             icon: 'warning',
             title: 'Search Required',
-            text: 'Please enter phone number or name to search',
+            text: 'Please enter phone number or card number to search',
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
@@ -638,50 +898,105 @@ function searchCustomer() {
         return;
     }
 
-    // Load customers from localStorage
-    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const found = customers.find(c =>
-        c.phone.includes(searchValue) ||
-        c.name.toLowerCase().includes(searchValue.toLowerCase())
-    );
+    // Search customer from backend API
+    fetch(`/api/customers/search?q=${encodeURIComponent(searchValue)}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Search failed');
+            return response.json();
+        })
+        .then(data => {
+            console.log('API Response:', data); // DEBUG
+            if (data.success && data.data && data.data.length > 0) {
+                const customer = data.data[0]; // Get first result
+                console.log('Customer Object:', customer); // DEBUG
 
-    if (found) {
-        selectCustomer(found);
-    } else {
-        Swal.fire({
-            icon: 'error',
-            title: 'Not Found',
-            text: 'No customer found with that phone or name',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000
+                // Handle different field name possibilities
+                let customerName = customer.firstName && customer.lastName ?
+                    (customer.firstName + ' ' + customer.lastName) :
+                    (customer.fullName || customer.full_name || 'Customer');
+
+                selectCustomer({
+                    id: customer.id,
+                    code: customer.customerCode,
+                    name: customerName,
+                    phone: customer.phone,
+                    loyaltyPoints: customer.loyaltyPoints || 0,
+                    email: customer.email
+                });
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Customer Found',
+                    text: `Welcome ${customerName}! Loyalty Points: ${customer.loyaltyPoints || 0}`,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Not Found',
+                    text: 'No customer found with that phone/card number',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Customer search error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Search Error',
+                text: 'Failed to search customer. Please try again.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
         });
-    }
 }
 
 // Select Customer
 function selectCustomer(customer) {
     selectedCustomer = customer;
+    loyaltyPointsAvailable = customer.loyaltyPoints || 0;
 
     document.getElementById('customerName').textContent = customer.name;
     document.getElementById('customerPhone').textContent = customer.phone;
-    document.getElementById('loyaltyPoints').textContent = customer.loyaltyPoints || 0;
+    document.getElementById('availableLoyaltyPoints').textContent = loyaltyPointsAvailable;
+    document.getElementById('maxLoyaltyPoints').textContent = loyaltyPointsAvailable;
+    document.getElementById('loyaltyPointsUsed').value = '0';
 
-    if (customer.membershipType === 'Loyalty') {
-        document.getElementById('loyaltyBadge').style.display = 'inline-block';
-    } else {
-        document.getElementById('loyaltyBadge').style.display = 'none';
-    }
+    // Enable loyalty payment method only if customer has loyalty points
+    const hasLoyalty = loyaltyPointsAvailable > 0;
+    document.getElementById('paymentLoyalty').disabled = !hasLoyalty;
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.opacity = hasLoyalty ? '1' : '0.5';
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.pointerEvents = hasLoyalty ? 'auto' : 'none';
 
     document.getElementById('selectedCustomerInfo').style.display = 'block';
+    document.getElementById('loyaltyPointsSection').style.display = 'block';
 }
 
 // Clear Customer
 function clearCustomer() {
     selectedCustomer = null;
+    loyaltyPointsAvailable = 0;
     document.getElementById('selectedCustomerInfo').style.display = 'none';
     document.getElementById('customerSearchInput').value = '';
+    document.getElementById('loyaltyPointsSection').style.display = 'none';
+    document.getElementById('loyaltyPointsUsed').value = '0';
+
+    // Disable loyalty payment method
+    document.getElementById('paymentLoyalty').disabled = true;
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.opacity = '0.5';
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.pointerEvents = 'none';
+
+    // Switch to cash payment
+    document.getElementById('paymentCash').checked = true;
+    handlePaymentMethodChange('cash');
 }
 
 // Save Quick Customer
@@ -709,6 +1024,7 @@ function saveQuickCustomer() {
         name: name,
         phone: phone,
         email: email,
+        loyaltyCardNumber: 'LC-' + Date.now().toString().slice(-6),
         membershipType: 'Regular',
         loyaltyPoints: 0,
         createdDate: new Date().toISOString()
@@ -758,6 +1074,8 @@ function processPayment() {
     const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
     const grandTotalText = document.getElementById('cartGrandTotal').textContent;
     const grandTotal = parseFloat(grandTotalText.replace('Rs. ', '').replace(',', ''));
+    let payableAmount = grandTotal;
+    let pointsUsed = 0;
 
     // Validation based on payment method
     if (paymentMethod === 'cash') {
@@ -794,7 +1112,7 @@ function processPayment() {
             Swal.fire({
                 icon: 'error',
                 title: 'Customer Required',
-                text: 'Please select a customer for credit payment!',
+                text: 'Please select a registered customer for credit payment!',
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
@@ -802,18 +1120,78 @@ function processPayment() {
             });
             return;
         }
+
+        const dueDate = document.getElementById('creditDueDate').value;
+        if (!dueDate) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Due Date Required',
+                text: 'Please set a due date for credit payment!',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            return;
+        }
+    } else if (paymentMethod === 'loyalty') {
+        if (!selectedCustomer || loyaltyPointsAvailable === 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Loyalty Not Available',
+                text: 'Selected customer does not have loyalty points!',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            return;
+        }
+
+        pointsUsed = parseInt(document.getElementById('loyaltyPointsUsed').value) || 0;
+        if (pointsUsed <= 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Points Required',
+                text: 'Please enter loyalty points to use!',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            return;
+        }
+
+        if (pointsUsed > loyaltyPointsAvailable) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Insufficient Points',
+                text: `Available points: ${loyaltyPointsAvailable}`,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+            return;
+        }
+
+        payableAmount = Math.max(0, grandTotal - pointsUsed);
     }
 
     // Confirm Payment
+    const summaryHtml = `
+        <div class="text-start">
+            <p><strong>Method:</strong> ${paymentMethod.toUpperCase()}</p>
+            <p><strong>Subtotal:</strong> Rs. ${cartItems.reduce((s, i) => s + i.subtotal, 0).toFixed(2)}</p>
+            <p><strong>Grand Total:</strong> Rs. ${grandTotal.toFixed(2)}</p>
+            ${paymentMethod === 'loyalty' ? `<p><strong>Points Used:</strong> ${pointsUsed}</p><p><strong>Payable:</strong> Rs. ${payableAmount.toFixed(2)}</p>` : ''}
+            <p><strong>Items:</strong> ${cartItems.length}</p>
+        </div>
+    `;
+
     Swal.fire({
         title: 'Process Payment?',
-        html: `
-            <div class="text-start">
-                <p><strong>Grand Total:</strong> Rs. ${grandTotal.toFixed(2)}</p>
-                <p><strong>Payment Method:</strong> ${paymentMethod.toUpperCase()}</p>
-                <p><strong>Items:</strong> ${cartItems.length}</p>
-            </div>
-        `,
+        html: summaryHtml,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#28a745',
@@ -822,54 +1200,273 @@ function processPayment() {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
-            completePayment(paymentMethod, grandTotal);
+            completePayment(paymentMethod, grandTotal, payableAmount, pointsUsed);
         }
     });
 }
 
-// Complete Payment
-function completePayment(paymentMethod, grandTotal) {
-    // Create Order Object
-    const orderCode = 'POS-' + Date.now();
-    const order = {
-        orderCode: orderCode,
-        orderDate: new Date().toISOString(),
-        orderType: 'IN_STORE',
-        customer: selectedCustomer || { name: 'Walk-in Customer', phone: 'N/A' },
-        items: [...cartItems],
-        subtotal: cartItems.reduce((sum, item) => sum + item.subtotal, 0),
-        discount: parseFloat(document.getElementById('discountAmount').textContent),
-        grandTotal: grandTotal,
-        paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === 'credit' ? 'Pending' : 'Paid',
-        orderStatus: 'Completed',
-        cashier: document.getElementById('cashierName').textContent,
-        createdAt: new Date().toISOString()
-    };
+// Complete Payment - NEW VERSION with Database Integration
+function completePayment(paymentMethod, grandTotal, payableAmount, pointsUsed) {
+    console.log('💳 Processing Payment via Backend API...');
 
-    // Save to orders
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(order);
-    localStorage.setItem('orders', JSON.stringify(orders));
-
-    // Update product stock
-    cartItems.forEach(item => {
-        const productIndex = products.findIndex(p => p.id === item.id);
-        if (productIndex !== -1) {
-            products[productIndex].stockQuantity -= item.quantity;
+    // Show loading
+    Swal.fire({
+        title: 'Processing Payment...',
+        html: 'Saving order and payment to database...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
         }
     });
-    localStorage.setItem('products', JSON.stringify(products));
 
-    // Success Message
+    // Step 1: Create Order via API
+    const orderRequest = {
+        customerId: selectedCustomer ? selectedCustomer.id : null,
+        orderType: 'WALK_IN',
+        items: cartItems.map(item => ({
+            batchId: item.batchId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice || item.unitPrice // From batch pricing
+        })),
+        taxAmount: 0,
+        deliveryCharge: 0,
+        loyaltyPointsUsed: pointsUsed > 0 ? pointsUsed : null,
+        notes: `Payment method: ${paymentMethod.toUpperCase()}`
+    };
+
+    console.log('📝 Creating order request:', orderRequest);
+
+    fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderRequest)
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('✅ Order created:', data);
+
+            if (!data.success || !data.data || !data.data.orderId) {
+                throw new Error('Invalid order response');
+            }
+
+            const orderId = data.data.orderId;
+            const orderCode = data.data.orderCode;
+            const orderObj = data.data;
+
+            // Step 2: Create Payment via API
+            return createPaymentInDatabase(orderId, paymentMethod, payableAmount || grandTotal, pointsUsed, orderObj);
+        })
+        .then(paymentResult => {
+            console.log('✅ Payment created:', paymentResult);
+
+            // Step 3: Deduct Stock for each item using batch barcode
+            return deductStockForAllItems(cartItems, paymentResult.orderId, paymentResult.orderCode);
+        })
+        .then(deductionResult => {
+            console.log('✅ Stock deducted:', deductionResult);
+
+            // Step 4: Show Success and Print Receipt
+            Swal.close();
+            showPaymentSuccessMessage(deductionResult.orderCode, deductionResult.orderData, paymentMethod, pointsUsed, payableAmount, grandTotal);
+        })
+        .catch(error => {
+            console.error('❌ Payment Processing Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Payment Failed!',
+                text: error.message || 'An error occurred while processing payment. Please try again.',
+                confirmButtonColor: '#dc3545'
+            }).then(() => {
+                // Reset for retry
+                document.getElementById('barcodeInput').focus();
+            });
+        });
+}
+
+// Helper: Create Payment in Database
+function createPaymentInDatabase(orderId, paymentMethod, amount, pointsUsed, orderData) {
+    return new Promise((resolve, reject) => {
+        // Map payment method to methodId
+        const methodIdMap = {
+            'cash': 1,
+            'card': 2,
+            'credit': 3,
+            'loyalty': 4
+        };
+
+        const methodId = methodIdMap[paymentMethod] || 1;
+        let transactionRef = null;
+        let referenceNumber = null;
+
+        // Add method-specific details
+        if (paymentMethod === 'card') {
+            transactionRef = document.getElementById('transactionRef').value;
+            referenceNumber = document.getElementById('cardNumber').value;
+        } else if (paymentMethod === 'credit') {
+            referenceNumber = document.getElementById('creditDueDate').value;
+        }
+
+        const paymentRequest = {
+            orderId: orderId,
+            methodId: methodId,
+            amount: amount,
+            transactionId: transactionRef,
+            referenceNumber: referenceNumber,
+            notes: `Payment method: ${paymentMethod.toUpperCase()}, Items: ${cartItems.length}`
+        };
+
+        console.log('💰 Creating payment request:', paymentRequest);
+
+        fetch('/api/payments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(paymentRequest)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Payment API Error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success || !data.data || !data.data.paymentId) {
+                    throw new Error('Invalid payment response');
+                }
+
+                // Mark payment as completed
+                return markPaymentCompleted(data.data.paymentId, orderId, orderData);
+            })
+            .then(result => {
+                resolve(result);
+            })
+            .catch(error => {
+                reject(error);
+            });
+    });
+}
+
+// Helper: Mark Payment as Completed
+function markPaymentCompleted(paymentId, orderId, orderData) {
+    return new Promise((resolve, reject) => {
+        console.log('✔️ Marking payment as COMPLETED...');
+
+        fetch(`/api/payments/${paymentId}/complete`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Complete Payment API Error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error('Failed to mark payment as completed');
+                }
+
+                resolve({
+                    paymentId: paymentId,
+                    orderId: orderId,
+                    orderCode: orderData.orderCode,
+                    orderData: orderData,
+                    status: 'COMPLETED'
+                });
+            })
+            .catch(error => {
+                reject(error);
+            });
+    });
+}
+
+// Helper: Deduct Stock for All Items
+function deductStockForAllItems(items, orderId, orderCode) {
+    return new Promise((resolve, reject) => {
+        console.log('📦 Deducting stock for', items.length, 'items...');
+
+        // Create array of deduction promises
+        const deductionPromises = items.map(item => {
+            return new Promise((resolveItem, rejectItem) => {
+                if (!item.barcode) {
+                    console.warn('⚠️ Item missing barcode:', item);
+                    rejectItem(new Error(`Item ${item.name} missing barcode`));
+                    return;
+                }
+
+                const deductionRequest = {
+                    quantity: item.quantity,
+                    referenceNumber: orderCode,
+                    reason: 'SALE'
+                };
+
+                console.log(`📉 Deducting ${item.quantity} units of barcode ${item.barcode}`);
+
+                fetch(`/api/batches/barcode/${item.barcode}/deduct-stock`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(deductionRequest)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Stock Deduction Error: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('✅ Stock deducted for barcode:', item.barcode, data);
+                        resolveItem(data);
+                    })
+                    .catch(error => {
+                        console.error('❌ Failed to deduct stock:', error);
+                        rejectItem(error);
+                    });
+            });
+        });
+
+        // Execute all deductions in parallel
+        Promise.all(deductionPromises)
+            .then(results => {
+                console.log('✅ All stock deductions completed:', results);
+                resolve({
+                    orderId: orderId,
+                    orderCode: orderCode,
+                    orderData: items[0].__orderData || { items: items },
+                    deductions: results
+                });
+            })
+            .catch(error => {
+                console.error('❌ Stock deduction failed:', error);
+                reject(error);
+            });
+    });
+}
+
+// Helper: Show Payment Success Message
+function showPaymentSuccessMessage(orderCode, orderData, paymentMethod, pointsUsed, payableAmount, grandTotal) {
     Swal.fire({
         icon: 'success',
-        title: 'Payment Successful!',
+        title: 'Payment Successful! ✅',
         html: `
             <div class="text-start">
-                <p><strong>Order Code:</strong> ${orderCode}</p>
-                <p><strong>Amount:</strong> Rs. ${grandTotal.toFixed(2)}</p>
-                <p><strong>Payment:</strong> ${paymentMethod.toUpperCase()}</p>
+                <p><strong>Order:</strong> ${orderCode}</p>
+                <p><strong>Amount Paid:</strong> Rs. ${(payableAmount || grandTotal).toFixed(2)}</p>
+                <p><strong>Method:</strong> ${paymentMethod.toUpperCase()}</p>
+                ${pointsUsed > 0 ? `<p><strong>Loyalty Points Used:</strong> ${pointsUsed}</p>` : ''}
+                <p style="color: green;"><strong>✔️ Saved to Database</strong></p>
+                <p style="color: green;"><strong>✔️ Stock Updated</strong></p>
             </div>
         `,
         showCancelButton: true,
@@ -879,7 +1476,7 @@ function completePayment(paymentMethod, grandTotal) {
         cancelButtonColor: '#28a745'
     }).then((result) => {
         if (result.isConfirmed) {
-            printReceipt(order);
+            printReceipt(orderData);
         }
 
         // Reset for new sale
@@ -887,102 +1484,227 @@ function completePayment(paymentMethod, grandTotal) {
     });
 }
 
-// Print Receipt
-function printReceipt(order) {
+// Print Receipt - Updated for API Response
+function printReceipt(orderData) {
+    console.log('🖨️ Printing receipt for order:', orderData);
+
+    // Handle both old and new format
+    const orderCode = orderData.orderCode || orderData?.orderCode;
+    const orderDate = orderData.createdAt || orderData?.createdAt || new Date().toISOString();
+    const items = orderData.items || [];
+    const subtotal = orderData.subtotal || items.reduce((sum, item) => sum + (item.subtotal || item.lineTotal || 0), 0);
+    const discountAmount = orderData.discountAmount || parseFloat(document.getElementById('discountAmount')?.textContent || 0);
+    const grandTotal = orderData.grandTotal || subtotal - discountAmount;
+
     let receiptHTML = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Receipt - ${order.orderCode}</title>
+            <title>Receipt - ${orderCode}</title>
             <style>
-                body { font-family: 'Courier New', monospace; width: 300px; margin: 20px auto; }
-                h2 { text-align: center; margin: 10px 0; }
-                .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-                .item { display: flex; justify-content: space-between; margin: 5px 0; }
-                .total { border-top: 2px dashed #000; padding-top: 10px; margin-top: 10px; font-weight: bold; }
-                .footer { text-align: center; margin-top: 20px; border-top: 2px dashed #000; padding-top: 10px; }
+                body { 
+                    font-family: 'Courier New', monospace; 
+                    width: 350px; 
+                    margin: 20px auto;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }
+                .receipt {
+                    background-color: white;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                }
+                h2 { 
+                    text-align: center; 
+                    margin: 5px 0;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                h3 {
+                    text-align: center;
+                    font-size: 12px;
+                    margin: 2px 0;
+                }
+                .header { 
+                    text-align: center; 
+                    border-bottom: 2px solid #000; 
+                    padding-bottom: 10px;
+                    margin-bottom: 10px;
+                }
+                .header p {
+                    margin: 2px 0;
+                    font-size: 11px;
+                }
+                .items-header {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    font-weight: bold;
+                    border-bottom: 1px solid #999;
+                    padding: 5px 0;
+                    font-size: 11px;
+                }
+                .item { 
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    margin: 3px 0;
+                    font-size: 11px;
+                }
+                .total { 
+                    border-top: 2px solid #000; 
+                    padding-top: 10px; 
+                    margin-top: 10px;
+                    margin-bottom: 10px;
+                }
+                .total-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 3px 0;
+                    font-size: 11px;
+                }
+                .grand-total {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-top: 1px solid #000;
+                    padding-top: 5px;
+                }
+                .footer { 
+                    text-align: center; 
+                    margin-top: 15px; 
+                    border-top: 2px solid #000; 
+                    padding-top: 10px;
+                    font-size: 10px;
+                }
             </style>
         </head>
         <body>
-            <div class="header">
-                <h2>SAMPATH GROCERY STORE</h2>
-                <p>123 Main Street, Colombo<br>Tel: 011-1234567</p>
-                <p>Date: ${new Date(order.orderDate).toLocaleString()}</p>
-                <p>Order: ${order.orderCode}</p>
-                <p>Cashier: ${order.cashier}</p>
-            </div>
-            
-            <div class="items">
+            <div class="receipt">
+                <div class="header">
+                    <h2>SAMPATH GROCERY STORE</h2>
+                    <h3>🏪 Point of Sale Receipt</h3>
+                    <p>123 Main Street, Colombo</p>
+                    <p>Tel: 011-1234567</p>
+                    <p>═════════════════════════════</p>
+                    <p>Date: ${new Date(orderDate).toLocaleString()}</p>
+                    <p>Order: <strong>${orderCode}</strong></p>
+                    <p>Cashier: ${document.getElementById('cashierName')?.textContent || 'Admin'}</p>
+                </div>
+                
+                <div class="items-header">
+                    <span>ITEM</span>
+                    <span>QTY</span>
+                    <span>AMOUNT</span>
+                </div>
     `;
 
-    order.items.forEach(item => {
-        receiptHTML += `
-            <div class="item">
-                <span>${item.name} (x${item.quantity})</span>
-                <span>Rs. ${item.subtotal.toFixed(2)}</span>
-            </div>
-        `;
-    });
+    // Add items
+    if (items && items.length > 0) {
+        items.forEach(item => {
+            const itemName = item.name || item.productName || 'Unknown';
+            const itemQty = item.quantity || 1;
+            const itemPrice = item.subtotal || item.lineTotal || (item.unitPrice * item.quantity) || 0;
+
+            receiptHTML += `
+                <div class="item">
+                    <span>${itemName}</span>
+                    <span>${itemQty}</span>
+                    <span>Rs. ${itemPrice.toFixed(2)}</span>
+                </div>
+            `;
+        });
+    }
 
     receiptHTML += `
-            </div>
-            
-            <div class="total">
-                <div class="item">
-                    <span>Subtotal:</span>
-                    <span>Rs. ${order.subtotal.toFixed(2)}</span>
+                <div style="border-bottom: 1px solid #999; margin: 5px 0;"></div>
+                
+                <div class="total">
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span>Rs. ${subtotal.toFixed(2)}</span>
+                    </div>
+    `;
+
+    if (discountAmount > 0) {
+        receiptHTML += `
+                    <div class="total-row">
+                        <span>Discount:</span>
+                        <span>-Rs. ${discountAmount.toFixed(2)}</span>
+                    </div>
+        `;
+    }
+
+    receiptHTML += `
+                    <div class="grand-total">
+                        <span>TOTAL:</span>
+                        <span>Rs. ${grandTotal.toFixed(2)}</span>
+                    </div>
                 </div>
-                <div class="item">
-                    <span>Discount:</span>
-                    <span>-Rs. ${order.discount.toFixed(2)}</span>
+                
+                <div style="text-align: center; font-size: 11px; margin: 10px 0;">
+                    <p>💳 <strong>Payment Method: CASH</strong></p>
+                    <p>✅ <strong>STATUS: PAID</strong></p>
                 </div>
-                <div class="item" style="font-size: 18px;">
-                    <span>GRAND TOTAL:</span>
-                    <span>Rs. ${order.grandTotal.toFixed(2)}</span>
+                
+                <div class="footer">
+                    <p>Thank You for Your Purchase!</p>
+                    <p>═════════════════════════════</p>
+                    <p>Visit Again Soon 🙏</p>
+                    <p>Generated: ${new Date().toLocaleString()}</p>
                 </div>
-                <div class="item">
-                    <span>Payment:</span>
-                    <span>${order.paymentMethod.toUpperCase()}</span>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>Thank You for Your Purchase!</p>
-                <p>Visit Again Soon</p>
             </div>
         </body>
         </html>
     `;
 
     // Open print window
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
-    printWindow.print();
+
+    // Trigger print dialog
+    setTimeout(() => {
+        printWindow.print();
+    }, 250);
 }
 
 // Reset POS for New Sale
 function resetPOS() {
     cartItems = [];
     selectedCustomer = null;
+    loyaltyPointsAvailable = 0;
 
     // Reset UI
     updateCartDisplay();
     updateCartSummary();
     document.getElementById('barcodeInput').value = '';
-    document.getElementById('productSearch').value = '';
-    document.getElementById('productSearchResults').innerHTML = '';
     document.getElementById('discountValue').value = '0';
     document.getElementById('amountTendered').value = '';
     document.getElementById('changeAmount').style.display = 'none';
     document.getElementById('cardNumber').value = '';
     document.getElementById('transactionRef').value = '';
-    document.getElementById('walkInCustomer').checked = true;
-    document.getElementById('customerSearchSection').style.display = 'none';
+    document.getElementById('creditDueDate').value = '';
+    document.getElementById('loyaltyPointsUsed').value = '0';
+
+    // Reset customer type to walk-in
+    document.getElementById('walkinCustomer').checked = true;
+    document.getElementById('registeredCustomerSection').style.display = 'none';
     document.getElementById('selectedCustomerInfo').style.display = 'none';
+    document.getElementById('loyaltyPointsSection').style.display = 'none';
+
+    // Disable loyalty payment method
+    document.getElementById('paymentLoyalty').disabled = true;
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.opacity = '0.5';
+    document.querySelector('.payment-method-card[data-method="loyalty"]').style.pointerEvents = 'none';
+
+    // Reset to cash payment
     document.getElementById('paymentCash').checked = true;
     handlePaymentMethodChange('cash');
 
     // Focus on barcode
     document.getElementById('barcodeInput').focus();
 }
+
+

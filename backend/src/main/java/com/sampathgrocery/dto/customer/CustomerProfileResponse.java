@@ -4,8 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-
 /**
  * DTO for customer profile response
  */
@@ -15,8 +13,6 @@ import java.time.LocalDate;
 public class CustomerProfileResponse {
     private Integer profileId;
     private Integer customerId;
-    private LocalDate dateOfBirth;
-    private String gender;
     private String preferredContactMethod;
     private String preferences;
     private String notes;

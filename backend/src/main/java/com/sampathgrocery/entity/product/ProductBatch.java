@@ -38,6 +38,15 @@ public class ProductBatch {
     @Column(name = "batch_code", nullable = false, unique = true, length = 30)
     private String batchCode;
 
+    /**
+     * Product barcode for identification
+     * Uniquely identifies the product variant in this batch
+     * Can be EAN-13, UPC, or any barcode standard
+     */
+    @Size(max = 100, message = "Barcode cannot exceed 100 characters")
+    @Column(name = "barcode", nullable = true, unique = true, length = 100)
+    private String barcode;
+
     @NotNull(message = "Product is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)

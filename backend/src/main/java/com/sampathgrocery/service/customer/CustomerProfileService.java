@@ -53,17 +53,6 @@ public class CustomerProfileService {
                 });
 
         // Update fields if provided
-        if (request.getDateOfBirth() != null) {
-            profile.setDateOfBirth(request.getDateOfBirth());
-        }
-        if (request.getGender() != null) {
-            try {
-                CustomerProfile.Gender gender = CustomerProfile.Gender.valueOf(request.getGender().toUpperCase());
-                profile.setGender(gender);
-            } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid gender value: " + request.getGender());
-            }
-        }
         if (request.getPreferredContactMethod() != null) {
             try {
                 CustomerProfile.PreferredContactMethod method = CustomerProfile.PreferredContactMethod
@@ -92,8 +81,6 @@ public class CustomerProfileService {
         CustomerProfileResponse response = new CustomerProfileResponse();
         response.setProfileId(profile.getProfileId());
         response.setCustomerId(profile.getCustomer().getCustomerId());
-        response.setDateOfBirth(profile.getDateOfBirth());
-        response.setGender(profile.getGender() != null ? profile.getGender().name() : null);
         response.setPreferredContactMethod(
                 profile.getPreferredContactMethod() != null ? profile.getPreferredContactMethod().name() : null);
         response.setPreferences(profile.getPreferences());

@@ -58,6 +58,27 @@ public class OrderService {
             throw new BadRequestException("Invalid order type: " + request.getOrderType());
         }
 
+        // Validate fulfillment type
+        Order.FulfillmentType fulfillmentType;
+        try {
+            fulfillmentType = Order.FulfillmentType.valueOf(request.getFulfillmentType().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid fulfillment type: " + request.getFulfillmentType());
+        }
+
+        // Validate delivery address if fulfillment type is DELIVERY
+        if (fulfillmentType == Order.FulfillmentType.DELIVERY) {
+            if (request.getDeliveryAddress() == null || request.getDeliveryAddress().trim().isEmpty()) {
+                throw new BadRequestException("Delivery address is required for delivery orders");
+            }
+            if (request.getDeliveryCity() == null || request.getDeliveryCity().trim().isEmpty()) {
+                throw new BadRequestException("Delivery city is required for delivery orders");
+            }
+            if (request.getDeliveryPhone() == null || request.getDeliveryPhone().trim().isEmpty()) {
+                throw new BadRequestException("Delivery phone is required for delivery orders");
+            }
+        }
+
         // Get default "PENDING" status
         OrderStatus pendingStatus = orderStatusRepository.findByStatusName("PENDING")
                 .orElseThrow(() -> new ResourceNotFoundException("OrderStatus 'PENDING' not found"));
@@ -71,7 +92,10 @@ public class OrderService {
         order.setOrderCode(orderCode);
         order.setOrderType(orderType);
         order.setStatus(pendingStatus);
-        order.setNotes(request.getNotes());
+        order.setFulfillmentType(fulfillmentType);
+        order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setDeliveryCity(request.getDeliveryCity());
+        order.setDeliveryPhone(request.getDeliveryPhone());
         order.setSubtotal(BigDecimal.ZERO);
         order.setDiscountAmount(BigDecimal.ZERO);
         order.setTaxAmount(request.getTaxAmount() != null ? request.getTaxAmount() : BigDecimal.ZERO);
@@ -163,20 +187,6 @@ public class OrderService {
 
         order.setItems(orderItems);
         order.setSubtotal(subtotal);
-
-        // Apply discount code if provided
-        if (request.getDiscountCode() != null && !request.getDiscountCode().isEmpty()) {
-            Discount discount = discountRepository.findValidDiscountByCode(
-                    request.getDiscountCode(),
-                    java.time.LocalDate.now()).orElse(null);
-
-            if (discount != null && discount.isValid()) {
-                BigDecimal discountAmount = discount.calculateDiscountAmount(subtotal);
-                order.setDiscountAmount(discountAmount);
-                discount.incrementUsage();
-                discountRepository.save(discount);
-            }
-        }
 
         // Calculate totals
         order.calculateTotals();
@@ -289,7 +299,10 @@ public class OrderService {
         response.setLoyaltyDiscountAmount(order.getLoyaltyDiscountAmount());
         response.setGrandTotal(order.getGrandTotal());
         response.setLoyaltyPointsEarned(order.getLoyaltyPointsEarned());
-        response.setNotes(order.getNotes());
+        response.setFulfillmentType(order.getFulfillmentType() != null ? order.getFulfillmentType().name() : null);
+        response.setDeliveryAddress(order.getDeliveryAddress());
+        response.setDeliveryCity(order.getDeliveryCity());
+        response.setDeliveryPhone(order.getDeliveryPhone());
         response.setCreatedAt(order.getCreatedAt());
         response.setCreatedBy(order.getCreatedBy() != null ? order.getCreatedBy().getUsername() : null);
         return response;

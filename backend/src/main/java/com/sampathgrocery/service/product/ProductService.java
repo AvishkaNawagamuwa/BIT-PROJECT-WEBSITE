@@ -116,19 +116,19 @@ public class ProductService {
         product.setProductCode(productCode);
         product.setProductName(request.getProductName());
         product.setCategory(category);
-        
+
         // Set brand if provided
         if (request.getBrandId() != null) {
             Brand brand = brandRepository.findById(request.getBrandId())
                     .orElseThrow(() -> new ResourceNotFoundException("Brand", "id", request.getBrandId()));
             product.setBrand(brand);
         }
-        
+
         // Set unit (required)
         UnitOfMeasure unit = unitOfMeasureRepository.findById(request.getUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "id", request.getUnitId()));
         product.setUnit(unit);
-        
+
         product.setBarcode(barcode);
         product.setDescription(request.getDescription());
         product.setImageUrl(request.getImageUrl());
@@ -166,7 +166,7 @@ public class ProductService {
         product.setProductCode(request.getProductCode());
         product.setProductName(request.getProductName());
         product.setCategory(category);
-        
+
         // Update brand if provided
         if (request.getBrandId() != null) {
             Brand brand = brandRepository.findById(request.getBrandId())
@@ -175,12 +175,12 @@ public class ProductService {
         } else {
             product.setBrand(null);
         }
-        
+
         // Update unit (required)
         UnitOfMeasure unit = unitOfMeasureRepository.findById(request.getUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "id", request.getUnitId()));
         product.setUnit(unit);
-        
+
         product.setBarcode(request.getBarcode());
         product.setDescription(request.getDescription());
         product.setImageUrl(request.getImageUrl());
@@ -231,26 +231,26 @@ public class ProductService {
         response.setProductId(product.getProductId());
         response.setProductCode(product.getProductCode());
         response.setProductName(product.getProductName());
-        
+
         // Set category info (null-safe)
         if (product.getCategory() != null) {
             response.setCategoryId(product.getCategory().getCategoryId());
             response.setCategoryName(product.getCategory().getCategoryName());
         }
-        
+
         // Set brand info
         if (product.getBrand() != null) {
             response.setBrandId(product.getBrand().getBrandId());
             response.setBrandName(product.getBrand().getBrandName());
         }
-        
+
         // Set unit info
         if (product.getUnit() != null) {
             response.setUnitId(product.getUnit().getUnitId());
             response.setUnitCode(product.getUnit().getUnitCode());
             response.setUnitName(product.getUnit().getUnitName());
         }
-        
+
         response.setBarcode(product.getBarcode());
         response.setDescription(product.getDescription());
         response.setImageUrl(product.getImageUrl());
@@ -263,6 +263,13 @@ public class ProductService {
         Integer totalStock = productBatchRepository.getTotalStockByProduct(product.getProductId());
         response.setTotalStock(totalStock);
         response.setNeedsReorder(totalStock <= product.getReorderPoint());
+
+        // Get selling price from latest batch
+        var latestBatch = productBatchRepository
+                .findTopByProductProductIdOrderByReceivedDateDesc(product.getProductId());
+        if (latestBatch.isPresent()) {
+            response.setSellingPrice(latestBatch.get().getSellingPrice());
+        }
 
         return response;
     }

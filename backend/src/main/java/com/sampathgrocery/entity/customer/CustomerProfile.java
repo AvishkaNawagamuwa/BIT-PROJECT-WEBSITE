@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -31,13 +30,6 @@ public class CustomerProfile {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false, unique = true)
     private Customer customer;
-
-    @Column(name = "date_of_birth")
-    private LocalDate dateOfBirth;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "gender", length = 10)
-    private Gender gender;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "preferred_contact_method", length = 20)
@@ -64,13 +56,6 @@ public class CustomerProfile {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    /**
-     * Gender Enum
-     */
-    public enum Gender {
-        MALE, FEMALE, OTHER
-    }
 
     /**
      * Preferred Contact Method Enum

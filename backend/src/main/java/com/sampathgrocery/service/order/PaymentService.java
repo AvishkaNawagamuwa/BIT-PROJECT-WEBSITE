@@ -28,6 +28,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final OrderStatusRepository orderStatusRepository;
     private final UserRepository userRepository;
 
     /**
@@ -103,6 +104,14 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
         log.info("Payment {} marked as COMPLETED", paymentId);
+
+        // Update order status to COMPLETED after successful payment
+        Order order = payment.getOrder();
+        OrderStatus completedStatus = orderStatusRepository.findByStatusName("COMPLETED")
+                .orElseThrow(() -> new ResourceNotFoundException("OrderStatus 'COMPLETED' not found"));
+        order.setStatus(completedStatus);
+        orderRepository.save(order);
+        log.info("Order {} status updated to COMPLETED", order.getOrderId());
 
         return mapToResponse(savedPayment);
     }

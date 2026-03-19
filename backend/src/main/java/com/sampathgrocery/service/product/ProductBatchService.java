@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -75,6 +76,11 @@ public class ProductBatchService {
 
         ProductBatch batch = new ProductBatch();
         batch.setBatchCode(request.getBatchCode() != null ? request.getBatchCode() : generateBatchCode());
+
+        // Auto-generate barcode if not provided
+        String barcode = request.getBarcode() != null ? request.getBarcode() : generateBarcodeForBatch();
+        batch.setBarcode(barcode);
+
         batch.setProduct(product);
         batch.setSupplier(supplier);
         batch.setPurchasePrice(request.getPurchasePrice());
@@ -222,9 +228,109 @@ public class ProductBatchService {
         return batchRepository.getTotalStockValue();
     }
 
+    /**
+     * Get batch details by barcode
+     * Returns the batch with earliest expiry date (FIFO principle)
+     */
+    public ProductBatchResponse getBatchByBarcode(String barcode) {
+        ProductBatch batch = batchRepository.findLatestActiveBatchByBarcode(barcode)
+                .orElseThrow(() -> new ResourceNotFoundException("ProductBatch", "barcode", barcode));
+        return toResponse(batch);
+    }
+
+    /**
+     * Get batch pricing information by barcode
+     * Used for POS/Sales to get unit price quickly
+     */
+    public Map<String, Object> getPricingByBarcode(String barcode) {
+        ProductBatch batch = batchRepository.findLatestActiveBatchByBarcode(barcode)
+                .orElseThrow(() -> new ResourceNotFoundException("ProductBatch", "barcode", barcode));
+
+        Map<String, Object> pricing = new java.util.HashMap<>();
+        pricing.put("batchId", batch.getBatchId());
+        pricing.put("barcode", batch.getBarcode());
+        pricing.put("productId", batch.getProduct().getProductId());
+        pricing.put("productName", batch.getProduct().getProductName());
+        pricing.put("productCode", batch.getProduct().getProductCode());
+        pricing.put("purchasePrice", batch.getPurchasePrice());
+        pricing.put("sellingPrice", batch.getSellingPrice());
+        pricing.put("mrp", batch.getMrp());
+        pricing.put("stockQuantity", batch.getStockQuantity());
+        pricing.put("batchCode", batch.getBatchCode());
+        pricing.put("expiryDate", batch.getExpiryDate());
+        pricing.put("supplierName", batch.getSupplier() != null ? batch.getSupplier().getSupplierName() : null);
+        return pricing;
+    }
+
+    /**
+     * Find all active batches by barcode (for multi-batch products)
+     */
+    public List<ProductBatchResponse> getAllBatchesByBarcode(String barcode) {
+        List<ProductBatch> batches = batchRepository.findActiveByBarcodeOrderByExpiryDate(barcode);
+        if (batches.isEmpty()) {
+            throw new ResourceNotFoundException("ProductBatch", "barcode", barcode);
+        }
+        return batches.stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    /**
+     * Deduct stock using barcode (direct FIFO by barcode)
+     */
+    public void deductStockByBarcodeFIFO(String barcode, Integer quantity,
+            String referenceNumber, Integer userId) {
+
+        List<ProductBatch> batches = batchRepository.findActiveByBarcodeOrderByExpiryDate(barcode);
+        if (batches.isEmpty()) {
+            throw new ResourceNotFoundException("ProductBatch", "barcode", barcode);
+        }
+
+        int remainingToDeduct = quantity;
+
+        for (ProductBatch batch : batches) {
+            if (remainingToDeduct <= 0)
+                break;
+
+            if (batch.getStockQuantity() > 0) {
+                int deductFromThisBatch = Math.min(batch.getStockQuantity(), remainingToDeduct);
+
+                int beforeQty = batch.getStockQuantity();
+                batch.setStockQuantity(beforeQty - deductFromThisBatch);
+                batch.setUpdatedBy(userId);
+                batchRepository.save(batch);
+
+                // Log movement
+                stockMovementService.logMovement(
+                        batch.getBatchId(),
+                        StockMovement.MovementType.SALE,
+                        -deductFromThisBatch,
+                        referenceNumber,
+                        "SALE",
+                        "Stock deducted via barcode FIFO for sale",
+                        userId);
+
+                remainingToDeduct -= deductFromThisBatch;
+            }
+        }
+
+        if (remainingToDeduct > 0) {
+            throw new InsufficientStockException(
+                    String.format("Insufficient stock for barcode %s. Required: %d, Available: %d",
+                            barcode, quantity, quantity - remainingToDeduct));
+        }
+
+        // Update alerts after deduction
+        if (!batches.isEmpty()) {
+            stockAlertService.checkAndResolveAlertsForProduct(batches.get(0).getProduct().getProductId());
+        }
+    }
+
     private String generateBatchCode() {
         String lastCode = batchRepository.findLastBatchCode().orElse(null);
         return CodeGenerator.generateBatchCode(lastCode);
+    }
+
+    private String generateBarcodeForBatch() {
+        return CodeGenerator.generateBarcode();
     }
 
     private ProductBatch findById(Integer id) {
@@ -236,6 +342,7 @@ public class ProductBatchService {
         ProductBatchResponse response = new ProductBatchResponse();
         response.setBatchId(batch.getBatchId());
         response.setBatchCode(batch.getBatchCode());
+        response.setBarcode(batch.getBarcode());
         response.setProductId(batch.getProduct().getProductId());
         response.setProductName(batch.getProduct().getProductName());
         response.setProductCode(batch.getProduct().getProductCode());

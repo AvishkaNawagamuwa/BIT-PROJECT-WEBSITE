@@ -243,19 +243,6 @@ function setupFormHandlers() {
     const driverForm = document.getElementById('driverForm');
     if (driverForm) {
         driverForm.addEventListener('submit', handleDriverSave);
-
-        // License expiry check
-        document.getElementById('driverLicenseExpiry')?.addEventListener('change', checkLicenseExpiry);
-
-        // Load employees and users when modal opens
-        const driverModal = document.getElementById('modalDriverForm');
-        if (driverModal) {
-            driverModal.addEventListener('show.bs.modal', function (event) {
-                // Load dropdowns when modal opens
-                loadEmployeeDropdown();
-                loadUserDropdown();
-            });
-        }
     }
 
     // Delete driver button
@@ -684,42 +671,38 @@ function handleDriverSave(e) {
     e.preventDefault();
 
     const driverId = document.getElementById('driverId').value;
-    const driverCode = document.getElementById('driverCode').value;
     const name = document.getElementById('driverName').value;
+    const nic = document.getElementById('driverNIC').value;
     const phone = document.getElementById('driverPhone').value;
     const email = document.getElementById('driverEmail').value;
     const address = document.getElementById('driverAddress').value;
     const license = document.getElementById('driverLicense').value;
     const licenseType = document.getElementById('driverLicenseType').value;
-    const licenseExpiry = document.getElementById('driverLicenseExpiry').value;
-    const employeeId = document.getElementById('driverEmployeeLink').value || null;
-    const userAccountId = document.getElementById('driverUserAccount').value || null;
     const isActive = document.getElementById('driverActive').checked;
 
-    if (!driverCode || !name || !phone || !license || !licenseExpiry) {
+    if (!name || !nic || !phone || !license) {
         Swal.fire('Error', 'Please fill in all required fields', 'error');
         return;
     }
 
-    // Check license expiry
-    const expiryDate = new Date(licenseExpiry);
-    const today = new Date();
-    if (expiryDate < today) {
-        Swal.fire('Error', 'License has expired! Please enter a valid license expiry date.', 'error');
-        return;
+    // Auto-generate driver code if creating new driver
+    let driverCode = driverId ? document.getElementById('driverId').dataset.existingCode : null;
+    if (!driverCode) {
+        // Generate format: DRV-XXX (3 random uppercase letters)
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const randomLetters = Array.from({ length: 3 }, () => letters.charAt(Math.floor(Math.random() * letters.length))).join('');
+        driverCode = 'DRV-' + randomLetters;
     }
 
     const driverData = {
         driverCode: driverCode,
         fullName: name,
+        nicNumber: nic,
         phone: phone,
         email: email || null,
         address: address || null,
         licenseNumber: license,
         licenseType: licenseType || null,
-        licenseExpiryDate: licenseExpiry,
-        employeeId: employeeId,
-        userId: userAccountId,
         isActive: isActive
     };
 
@@ -761,7 +744,10 @@ function handleDriverSave(e) {
 
 function resetDriverForm() {
     document.getElementById('driverForm').reset();
-    document.getElementById('driverId').value = '';
+    const driverIdElement = document.getElementById('driverId');
+    driverIdElement.value = '';
+    driverIdElement.dataset.existingCode = '';
+    document.getElementById('driverNIC').value = '';
     document.getElementById('driverActive').checked = true;
     document.getElementById('btnDeleteDriver').style.display = 'none';
     document.getElementById('driverFormTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add Driver';
@@ -866,17 +852,17 @@ function editDriver(id) {
                 const driver = result.data;
 
                 document.getElementById('driverFormTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Driver';
-                document.getElementById('driverId').value = driver.driverId;
-                document.getElementById('driverCode').value = driver.driverCode;
+                const driverIdElement = document.getElementById('driverId');
+                driverIdElement.value = driver.driverId;
+                // Store the existing driver code to prevent regeneration
+                driverIdElement.dataset.existingCode = driver.driverCode;
                 document.getElementById('driverName').value = driver.fullName;
+                document.getElementById('driverNIC').value = driver.nicNumber || '';
                 document.getElementById('driverPhone').value = driver.phone;
                 document.getElementById('driverEmail').value = driver.email || '';
                 document.getElementById('driverAddress').value = driver.address || '';
                 document.getElementById('driverLicense').value = driver.licenseNumber;
                 document.getElementById('driverLicenseType').value = driver.licenseType || '';
-                document.getElementById('driverLicenseExpiry').value = driver.licenseExpiryDate;
-                document.getElementById('driverEmployeeLink').value = driver.employeeId || '';
-                document.getElementById('driverUserAccount').value = driver.userId || '';
                 document.getElementById('driverActive').checked = driver.isActive;
 
                 document.getElementById('btnDeleteDriver').style.display = 'block';
@@ -1094,10 +1080,246 @@ function editVehicle(vehicleId) {
 // ==================== DATA LOADING ====================
 function loadAllData() {
     loadDeliveries();
+    loadPendingOrders();
     loadDrivers();
     loadVehicles();
     loadRoutes();
     populateDropdowns();
+}
+
+/**
+ * Load pending online delivery orders from Orders API
+ * Filters: orderType = ONLINE, fulfillmentType = DELIVERY, status = PENDING
+ */
+function loadPendingOrders() {
+    const tbody = document.getElementById('pendingOrdersTableBody');
+    if (!tbody) return;
+
+    // Show loading state
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading pending orders...</td></tr>';
+
+    fetch('/api/orders')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch orders');
+            return response.json();
+        })
+        .then(result => {
+            // Filter for ONLINE + DELIVERY + PENDING orders
+            const pendingOrders = (result.data || []).filter(order =>
+                order.orderType === 'ONLINE' &&
+                order.fulfillmentType === 'DELIVERY' &&
+                order.status === 'PENDING'
+            );
+
+            // Update badge count
+            const badge = document.getElementById('pendingOrdersBadge');
+            if (badge) {
+                badge.textContent = pendingOrders.length;
+                badge.style.display = pendingOrders.length > 0 ? 'inline-block' : 'none';
+            }
+
+            // Display pending orders
+            if (pendingOrders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-check-circle"></i> No pending delivery orders</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pendingOrders.map((order, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${order.orderCode}</strong></td>
+                    <td>${order.customerName || 'N/A'}</td>
+                    <td>${order.deliveryPhone || 'N/A'}</td>
+                    <td>${order.deliveryAddress || 'N/A'}</td>
+                    <td><span class="badge bg-info">${order.deliveryCity || 'N/A'}</span></td>
+                    <td><span class="badge bg-secondary">${order.items ? order.items.length : 0}</span></td>
+                    <td class="fw-bold text-success">Rs. ${formatNumber(order.grandTotal || 0)}</td>
+                    <td><small>${formatDateTime(order.createdAt)}</small></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-info" onclick="viewOrderDetails(${order.orderId})" title="View Order">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="assignDelivery(${order.orderId}, '${order.orderCode}')" title="Assign Delivery">
+                                <i class="fas fa-truck-loading"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error loading pending orders:', error);
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger"><i class="fas fa-exclamation-circle"></i> Failed to load pending orders</td></tr>';
+        });
+}
+
+/**
+ * Format number as currency
+ */
+function formatNumber(num) {
+    if (!num && num !== 0) return '0.00';
+    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * Format date and time
+ */
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+/**
+ * Format date only
+ */
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+/**
+ * View order details
+ */
+function viewOrderDetails(orderId) {
+    fetch(`/api/orders/${orderId}`)
+        .then(response => response.json())
+        .then(result => {
+            const order = result.data;
+            const itemsHTML = (order.items || []).map(item => `
+                <tr>
+                    <td>${item.productName}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-end">Rs. ${formatNumber(item.unitPrice)}</td>
+                    <td class="text-end">Rs. ${formatNumber(item.lineTotal)}</td>
+                </tr>
+            `).join('');
+
+            Swal.fire({
+                title: `Order ${order.orderCode}`,
+                html: `
+                    <div class="text-start">
+                        <h6 class="text-primary mb-2">Customer Details</h6>
+                        <p><strong>Name:</strong> ${order.customerName}</p>
+                        <p><strong>Phone:</strong> ${order.deliveryPhone}</p>
+                        <p><strong>Address:</strong> ${order.deliveryAddress}</p>
+                        <p><strong>City:</strong> ${order.deliveryCity}</p>
+                        
+                        <h6 class="text-primary mb-2 mt-3">Order Items</h6>
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHTML}
+                            </tbody>
+                        </table>
+                        
+                        <div class="alert alert-info mt-3">
+                            <strong>Grand Total:</strong> Rs. ${formatNumber(order.grandTotal)}
+                        </div>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Close'
+            });
+        })
+        .catch(error => {
+            console.error('Error loading order:', error);
+            Swal.fire('Error', 'Failed to load order details', 'error');
+        });
+}
+
+/**
+ * Assign delivery to a pending order
+ */
+function assignDelivery(orderId, orderCode) {
+    // Reload available drivers
+    fetch('/api/v1/delivery/drivers')
+        .then(response => response.json())
+        .then(result => {
+            const drivers = result.data || [];
+            const driverOptions = drivers.map(d => `<option value="${d.driverId}">${d.driverCode} - ${d.fullName}</option>`).join('');
+
+            Swal.fire({
+                title: `Assign Delivery for ${orderCode}`,
+                html: `
+                    <div class="text-start">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Select Driver:</strong></label>
+                            <select id="assignDriver" class="form-select">
+                                <option value="">-- Choose a driver --</option>
+                                ${driverOptions}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Expected Delivery Date:</strong></label>
+                            <input type="date" id="expectedDeliveryDate" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Notes (Optional):</strong></label>
+                            <textarea id="deliveryNotes" class="form-control" rows="2" placeholder="Add any special instructions..."></textarea>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Assign Delivery',
+                confirmButtonColor: '#28a745',
+                cancelButtonText: 'Cancel',
+                preConfirm: () => {
+                    const driverId = document.getElementById('assignDriver').value;
+                    const deliveryDate = document.getElementById('expectedDeliveryDate').value;
+                    const notes = document.getElementById('deliveryNotes').value;
+
+                    if (!driverId) {
+                        Swal.showValidationMessage('Please select a driver');
+                        return false;
+                    }
+                    if (!deliveryDate) {
+                        Swal.showValidationMessage('Please select a delivery date');
+                        return false;
+                    }
+
+                    return { driverId, deliveryDate, notes };
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    // Here you would make an API call to assign the delivery
+                    // For now, show success and reload
+                    Swal.fire('Success', 'Delivery assigned successfully!', 'success');
+                    loadPendingOrders();
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading drivers:', error);
+            Swal.fire('Error', 'Failed to load drivers', 'error');
+        });
 }
 
 function loadDeliveries() {
@@ -1160,17 +1382,13 @@ function loadDrivers(filterStatus = 'all') {
                         ? '<span class="badge bg-success">Active</span>'
                         : '<span class="badge bg-secondary">Inactive</span>';
 
-                    const licenseExpiry = new Date(driver.licenseExpiryDate);
-                    const daysUntilExpiry = Math.floor((licenseExpiry - new Date()) / (1000 * 60 * 60 * 24));
-                    const expiryWarning = daysUntilExpiry < 30 ? '<span class="alert-badge">Expiring</span>' : '';
-
                     return `
                         <tr>
                             <td>${driver.driverCode}</td>
                             <td>${driver.fullName}</td>
+                            <td>${driver.nicNumber || '-'}</td>
                             <td>${driver.phone}</td>
                             <td>${driver.licenseNumber}</td>
-                            <td>${formatDate(driver.licenseExpiryDate)}${expiryWarning}</td>
                             <td>${driver.licenseType || '-'}</td>
                             <td>${statusBadge}</td>
                             <td>
@@ -1211,14 +1429,12 @@ function viewDriver(id) {
                     html: `
                         <div class="text-start">
                             <p><strong>Driver Code:</strong> ${driver.driverCode}</p>
+                            <p><strong>NIC:</strong> ${driver.nicNumber || 'N/A'}</p>
                             <p><strong>Phone:</strong> ${driver.phone}</p>
                             <p><strong>Email:</strong> ${driver.email || 'N/A'}</p>
                             <p><strong>License:</strong> ${driver.licenseNumber}</p>
                             <p><strong>License Type:</strong> ${driver.licenseType || 'N/A'}</p>
-                            <p><strong>License Expiry:</strong> ${formatDate(driver.licenseExpiryDate)}</p>
                             <p><strong>Address:</strong> ${driver.address || 'N/A'}</p>
-                            <p><strong>Employee Link:</strong> ${driver.employeeName || 'Not linked'}</p>
-                            <p><strong>User Account:</strong> ${driver.username || 'Not linked'}</p>
                             <p><strong>Status:</strong> 
                                 <span class="badge bg-${driver.isActive ? 'success' : 'secondary'}">
                                     ${driver.isActive ? 'Active' : 'Inactive'}

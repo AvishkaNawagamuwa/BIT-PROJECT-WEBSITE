@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -30,6 +31,7 @@ public class ProductResponse {
     private Integer reorderPoint;
     private Integer reorderQuantity;
     private Integer totalStock; // Total across all batches
+    private BigDecimal sellingPrice; // Latest batch selling price for POS
     private Boolean needsReorder; // totalStock < reorderPoint
     private Boolean isActive;
     private LocalDateTime createdAt;
