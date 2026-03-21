@@ -45,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
 function initializeBlurEffects() {
     const modalIds = [
         'modalDeliveryAssignment',
-        'modalRouteForm',
         'modalDeliveryRequest',
         'modalDriverForm',
         'modalVehicleForm'
@@ -210,18 +209,6 @@ function setupFormHandlers() {
         }
     }
 
-    // Form 6.2: Route Management Form
-    const routeForm = document.getElementById('routeForm');
-    if (routeForm) {
-        routeForm.addEventListener('submit', handleRouteSave);
-
-        // Area selection change
-        document.getElementById('routeAreas')?.addEventListener('change', updateAreaChips);
-    }
-
-    // Delete route button
-    document.getElementById('btnDeleteRoute')?.addEventListener('click', handleRouteDelete);
-
     // Form 6.3: Delivery Request Form
     const deliveryRequestForm = document.getElementById('deliveryRequestForm');
     if (deliveryRequestForm) {
@@ -356,250 +343,8 @@ function simulateSMS(driver, delivery) {
     console.log(`ETA: ${new Date(delivery.estimatedTime).toLocaleString()}`);
 }
 
-// ==================== FORM 6.2: ROUTE MANAGEMENT ====================
-function updateAreaChips() {
-    const select = document.getElementById('routeAreas');
-    const chipsContainer = document.getElementById('selectedAreasChips');
-
-    if (!select || !chipsContainer) return;
-
-    const selectedAreas = Array.from(select.selectedOptions).map(opt => opt.value);
-
-    chipsContainer.innerHTML = selectedAreas.map(area =>
-        `<span class="chip">${area} <span class="remove" onclick="removeAreaChip('${area}')">×</span></span>`
-    ).join('');
-}
-
-function removeAreaChip(area) {
-    const select = document.getElementById('routeAreas');
-    const option = Array.from(select.options).find(opt => opt.value === area);
-    if (option) {
-        option.selected = false;
-        updateAreaChips();
-    }
-}
-
-function handleRouteSave(e) {
-    e.preventDefault();
-
-    const routeId = document.getElementById('routeId').value;
-    const routeName = document.getElementById('routeName').value.trim();
-    const routeDate = document.getElementById('routeDate').value;
-    const driverId = document.getElementById('routeDriver').value || null;
-    const vehicleId = document.getElementById('routeVehicle').value || null;
-    const status = document.getElementById('routeStatus').value;
-    const notes = document.getElementById('routeNotes').value.trim() || null;
-
-    if (!routeName || !routeDate || !status) {
-        Swal.fire('Error', 'Please fill in all required fields (Route Name, Date, and Status)', 'error');
-        return;
-    }
-
-    const routeData = {
-        routeName: routeName,
-        routeDate: routeDate,
-        driverId: driverId ? parseInt(driverId) : null,
-        vehicleId: vehicleId ? parseInt(vehicleId) : null,
-        notes: notes
-    };
-
-    const url = routeId ? `/api/v1/delivery/routes/${routeId}` : '/api/v1/delivery/routes';
-    const method = routeId ? 'PUT' : 'POST';
-
-    fetch(url, {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Id': getCurrentUserId()
-        },
-        body: JSON.stringify(routeData)
-    })
-        .then(response => {
-            return response.json().then(data => ({
-                ok: response.ok,
-                status: response.status,
-                data: data
-            }));
-        })
-        .then(result => {
-            if (result.ok && result.data.success) {
-                Swal.fire('Success', result.data.message, 'success');
-                bootstrap.Modal.getInstance(document.getElementById('modalRouteForm')).hide();
-                loadRoutes();
-                resetRouteForm();
-            } else {
-                Swal.fire('Error', result.data.message || 'Failed to save route', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error saving route:', error);
-            Swal.fire('Error', 'Network error. Failed to save route.', 'error');
-        });
-}
-
-function handleRouteDelete() {
-    const routeId = document.getElementById('routeId').value;
-    if (!routeId) return;
-
-    Swal.fire({
-        title: 'Delete Route?',
-        text: 'This will also remove all deliveries from this route',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/api/v1/delivery/routes/${routeId}`, {
-                method: 'DELETE',
-                headers: {
-                    'User-Id': getCurrentUserId()
-                }
-            })
-                .then(response => {
-                    return response.json().then(data => ({
-                        ok: response.ok,
-                        status: response.status,
-                        data: data
-                    }));
-                })
-                .then(result => {
-                    if (result.ok && result.data.success) {
-                        Swal.fire('Deleted!', result.data.message, 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('modalRouteForm')).hide();
-                        loadRoutes();
-                        resetRouteForm();
-                    } else {
-                        Swal.fire('Error', result.data.message || 'Failed to delete route', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting route:', error);
-                    Swal.fire('Error', 'Network error. Failed to delete route.', 'error');
-                });
-        }
-    });
-}
-
-function resetRouteForm() {
-    document.getElementById('routeForm').reset();
-    document.getElementById('routeId').value = '';
-    document.getElementById('routeFormTitle').innerHTML = '<i class="fas fa-route me-2"></i>Add Route';
-    document.getElementById('btnDeleteRoute').style.display = 'none';
-    document.getElementById('routeStatsDisplay').textContent = 'No deliveries assigned';
-}
-
-function editRoute(routeId) {
-    // Load dropdowns first
-    loadRouteDriverDropdown();
-    loadRouteVehicleDropdown();
-
-    fetch(`/api/v1/delivery/routes/${routeId}`, {
-        headers: {
-            'User-Id': getCurrentUserId()
-        }
-    })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success && result.data) {
-                const route = result.data;
-
-                document.getElementById('routeFormTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Route';
-                document.getElementById('routeId').value = route.routeId;
-                document.getElementById('routeName').value = route.routeName;
-                document.getElementById('routeDate').value = route.routeDate;
-
-                // Wait a bit for dropdowns to load, then set values
-                setTimeout(() => {
-                    document.getElementById('routeDriver').value = route.driverId || '';
-                    document.getElementById('routeVehicle').value = route.vehicleId || '';
-                }, 500);
-
-                document.getElementById('routeStatus').value = route.status;
-                document.getElementById('routeNotes').value = route.notes || '';
-
-                // Update stats display
-                const statsText = `${route.totalDeliveries || 0} total, ${route.completedDeliveries || 0} completed, ${route.failedDeliveries || 0} failed`;
-                document.getElementById('routeStatsDisplay').textContent = statsText;
-
-                document.getElementById('btnDeleteRoute').style.display = 'block';
-
-                new bootstrap.Modal(document.getElementById('modalRouteForm')).show();
-            } else {
-                Swal.fire('Error', 'Failed to load route data', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading route:', error);
-            Swal.fire('Error', 'Failed to load route data', 'error');
-        });
-}
-
-function loadRouteDriverDropdown() {
-    const driverSelect = document.getElementById('routeDriver');
-    if (!driverSelect) {
-        console.warn('Driver dropdown not found');
-        return;
-    }
-
-    console.log('Loading drivers for route dropdown...');
-    fetch('/api/v1/delivery/drivers', {
-        headers: {
-            'User-Id': getCurrentUserId()
-        }
-    })
-        .then(response => response.json())
-        .then(result => {
-            console.log('Drivers API response:', result);
-            if (result.success && result.data) {
-                const drivers = Array.isArray(result.data) ? result.data : [];
-                console.log(`Loaded ${drivers.length} drivers`);
-                driverSelect.innerHTML = '<option value="">Select driver...</option>' +
-                    drivers.map(d => `<option value="${d.driverId}">${d.fullName}</option>`).join('');
-            } else {
-                console.warn('No drivers found or invalid response');
-                driverSelect.innerHTML = '<option value="">No drivers available</option>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading drivers:', error);
-            driverSelect.innerHTML = '<option value="">Error loading drivers</option>';
-        });
-}
-
-function loadRouteVehicleDropdown() {
-    const vehicleSelect = document.getElementById('routeVehicle');
-    if (!vehicleSelect) {
-        console.warn('Vehicle dropdown not found');
-        return;
-    }
-
-    console.log('Loading vehicles for route dropdown...');
-    fetch('/api/v1/delivery/vehicles?page=0&size=100', {
-        headers: {
-            'User-Id': getCurrentUserId()
-        }
-    })
-        .then(response => response.json())
-        .then(result => {
-            console.log('Vehicles API response:', result);
-            if (result.success && result.data && result.data.content) {
-                const vehicles = result.data.content;
-                console.log(`Loaded ${vehicles.length} vehicles`);
-                vehicleSelect.innerHTML = '<option value="">Select vehicle...</option>' +
-                    vehicles.map(v => `<option value="${v.vehicleId}">${v.vehicleNumber} (${v.vehicleType})</option>`).join('');
-            } else {
-                console.warn('No vehicles found or invalid response');
-                vehicleSelect.innerHTML = '<option value="">No vehicles available</option>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading vehicles:', error);
-            vehicleSelect.innerHTML = '<option value="">Error loading vehicles</option>';
-        });
-}
-
-// ==================== FORM 6.3: DELIVERY REQUEST ====================
+// ==================== FORM 6.3: DELIVERY REQUEST (REMOVED - NOT USED IN SIMPLIFIED DELIVERY SYSTEM) ====================
+// Delivery request form functionality has been moved to the main pending orders tab
 function handleProductSelection(e) {
     const productId = e.target.value;
     const products = JSON.parse(localStorage.getItem('products')) || [];
@@ -672,7 +417,6 @@ function handleDriverSave(e) {
 
     const driverId = document.getElementById('driverId').value;
     const name = document.getElementById('driverName').value;
-    const nic = document.getElementById('driverNIC').value;
     const phone = document.getElementById('driverPhone').value;
     const email = document.getElementById('driverEmail').value;
     const address = document.getElementById('driverAddress').value;
@@ -680,7 +424,7 @@ function handleDriverSave(e) {
     const licenseType = document.getElementById('driverLicenseType').value;
     const isActive = document.getElementById('driverActive').checked;
 
-    if (!name || !nic || !phone || !license) {
+    if (!name || !phone || !license) {
         Swal.fire('Error', 'Please fill in all required fields', 'error');
         return;
     }
@@ -697,7 +441,6 @@ function handleDriverSave(e) {
     const driverData = {
         driverCode: driverCode,
         fullName: name,
-        nicNumber: nic,
         phone: phone,
         email: email || null,
         address: address || null,
@@ -747,7 +490,6 @@ function resetDriverForm() {
     const driverIdElement = document.getElementById('driverId');
     driverIdElement.value = '';
     driverIdElement.dataset.existingCode = '';
-    document.getElementById('driverNIC').value = '';
     document.getElementById('driverActive').checked = true;
     document.getElementById('btnDeleteDriver').style.display = 'none';
     document.getElementById('driverFormTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>Add Driver';
@@ -857,7 +599,6 @@ function editDriver(id) {
                 // Store the existing driver code to prevent regeneration
                 driverIdElement.dataset.existingCode = driver.driverCode;
                 document.getElementById('driverName').value = driver.fullName;
-                document.getElementById('driverNIC').value = driver.nicNumber || '';
                 document.getElementById('driverPhone').value = driver.phone;
                 document.getElementById('driverEmail').value = driver.email || '';
                 document.getElementById('driverAddress').value = driver.address || '';
@@ -1083,7 +824,8 @@ function loadAllData() {
     loadPendingOrders();
     loadDrivers();
     loadVehicles();
-    loadRoutes();
+    // Routes feature removed - direct assignment only
+    // loadRoutes();
     populateDropdowns();
 }
 
@@ -1256,43 +998,85 @@ function viewOrderDetails(orderId) {
 }
 
 /**
- * Assign delivery to a pending order
+ * Assign delivery to a pending order (Driver + Vehicle only, no routes)
  */
 function assignDelivery(orderId, orderCode) {
-    // Reload available drivers
-    fetch('/api/v1/delivery/drivers')
-        .then(response => response.json())
-        .then(result => {
-            const drivers = result.data || [];
-            const driverOptions = drivers.map(d => `<option value="${d.driverId}">${d.driverCode} - ${d.fullName}</option>`).join('');
+    // Load order details, drivers, and vehicles
+    Promise.all([
+        fetch(`/api/orders/${orderId}`).then(r => r.json()),
+        fetch('/api/v1/delivery/drivers').then(r => r.json()),
+        fetch('/api/v1/delivery/vehicles?page=0&size=100').then(r => r.json())
+    ])
+        .then(([orderResult, driversResult, vehiclesResult]) => {
+            if (!orderResult.data) throw new Error('Order not found');
+
+            const order = orderResult.data;
+            const deliveryAddress = order.deliveryAddress || '';
+            const deliveryCity = order.deliveryCity || '';
+            const deliveryPhone = order.deliveryPhone || '';
+
+            const drivers = driversResult.data || [];
+            const vehicles = (vehiclesResult.data?.content) || vehiclesResult.data || [];
+
+            const driverOptions = drivers
+                .filter(d => d.isActive)
+                .map(d => `<option value="${d.driverId}">${d.driverCode} - ${d.fullName}</option>`)
+                .join('');
+
+            const vehicleOptions = vehicles
+                .filter(v => v.isActive)
+                .map(v => `<option value="${v.vehicleId}">${v.vehicleNumber} (${v.vehicleType})</option>`)
+                .join('');
 
             Swal.fire({
-                title: `Assign Delivery for ${orderCode}`,
+                title: `📦 Assign Delivery<br><small>${orderCode}</small>`,
                 html: `
-                    <div class="text-start">
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Select Driver:</strong></label>
-                            <select id="assignDriver" class="form-select">
-                                <option value="">-- Choose a driver --</option>
-                                ${driverOptions}
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Expected Delivery Date:</strong></label>
-                            <input type="date" id="expectedDeliveryDate" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Notes (Optional):</strong></label>
-                            <textarea id="deliveryNotes" class="form-control" rows="2" placeholder="Add any special instructions..."></textarea>
-                        </div>
+                <div class="text-start">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-map-pin me-2"></i><strong>Delivery Address</strong></label>
+                        <div class="form-control bg-light" style="cursor: auto;">${deliveryAddress}</div>
                     </div>
-                `,
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-city me-2"></i><strong>City</strong></label>
+                        <div class="form-control bg-light" style="cursor: auto;">${deliveryCity}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-phone me-2"></i><strong>Phone</strong></label>
+                        <div class="form-control bg-light" style="cursor: auto;">${deliveryPhone}</div>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-user-tie me-2"></i><strong>Driver *</strong></label>
+                        <select id="assignDriver" class="form-select" required>
+                            <option value="">-- Select a driver --</option>
+                            ${driverOptions}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-van-shuttle me-2"></i><strong>Vehicle *</strong></label>
+                        <select id="assignVehicle" class="form-select" required>
+                            <option value="">-- Select a vehicle --</option>
+                            ${vehicleOptions}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-calendar-alt me-2"></i><strong>Expected Delivery Date *</strong></label>
+                        <input type="date" id="expectedDeliveryDate" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="fas fa-sticky-note me-2"></i><strong>Notes (Optional)</strong></label>
+                        <textarea id="deliveryNotes" class="form-control" rows="2" placeholder="Add any special instructions..."></textarea>
+                    </div>
+                </div>
+            `,
                 showCancelButton: true,
-                confirmButtonText: 'Assign Delivery',
+                confirmButtonText: '✓ Assign Delivery',
                 confirmButtonColor: '#28a745',
                 cancelButtonText: 'Cancel',
+                width: '550px',
                 preConfirm: () => {
                     const driverId = document.getElementById('assignDriver').value;
+                    const vehicleId = document.getElementById('assignVehicle').value;
                     const deliveryDate = document.getElementById('expectedDeliveryDate').value;
                     const notes = document.getElementById('deliveryNotes').value;
 
@@ -1300,25 +1084,106 @@ function assignDelivery(orderId, orderCode) {
                         Swal.showValidationMessage('Please select a driver');
                         return false;
                     }
+                    if (!vehicleId) {
+                        Swal.showValidationMessage('Please select a vehicle');
+                        return false;
+                    }
                     if (!deliveryDate) {
                         Swal.showValidationMessage('Please select a delivery date');
                         return false;
                     }
 
-                    return { driverId, deliveryDate, notes };
+                    return { driverId: parseInt(driverId), vehicleId: parseInt(vehicleId), deliveryDate, notes };
                 }
             }).then(result => {
                 if (result.isConfirmed) {
-                    // Here you would make an API call to assign the delivery
-                    // For now, show success and reload
-                    Swal.fire('Success', 'Delivery assigned successfully!', 'success');
-                    loadPendingOrders();
+                    const data = result.value;
+
+                    // Step 1: Create the delivery record
+                    fetch('/api/v1/delivery/deliveries', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'User-Id': getCurrentUserId()
+                        },
+                        body: JSON.stringify({
+                            orderId: orderId,
+                            deliveryAddress: deliveryAddress,
+                            deliveryCity: deliveryCity,
+                            customerPhone: deliveryPhone,
+                            scheduledDate: data.deliveryDate,
+                            deliveryNotes: data.notes
+                        })
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => {
+                                    throw new Error(err.message || 'Failed to create delivery');
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(result => {
+                            if (result.success && result.data) {
+                                const deliveryId = result.data.deliveryId;
+
+                                // Step 2: Assign driver and vehicle to the delivery
+                                return fetch(`/api/v1/delivery/deliveries/${deliveryId}/assign`, {
+                                    method: 'PATCH',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        driverId: data.driverId,
+                                        vehicleId: data.vehicleId,
+                                        scheduledDate: data.deliveryDate
+                                    })
+                                })
+                                    .then(response => {
+                                        if (!response.ok) {
+                                            return response.json().then(err => {
+                                                throw new Error(err.message || 'Failed to assign driver and vehicle');
+                                            });
+                                        }
+                                        return response.json();
+                                    })
+                                    .then(assignResult => {
+                                        if (assignResult.success) {
+                                            // Step 3: Update order status to ASSIGNED
+                                            return fetch(`/api/orders/${orderId}/status`, {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json'
+                                                },
+                                                body: JSON.stringify({ statusId: 2, notes: 'Order assigned for delivery' })
+                                            }).then(r => r.json());
+                                        } else {
+                                            throw new Error(assignResult.message || 'Failed to assign delivery');
+                                        }
+                                    });
+                            } else {
+                                throw new Error(result.message || 'Failed to create delivery');
+                            }
+                        })
+                        .then(result => {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Delivery Assigned!',
+                                text: `Order ${orderCode} assigned to driver and vehicle`,
+                                timer: 2000
+                            });
+                            loadPendingOrders();
+                        })
+                        .catch(error => {
+                            console.error('Error assigning delivery:', error);
+                            Swal.fire('Error', 'Failed to assign delivery: ' + error.message, 'error');
+                        });
                 }
             });
         })
         .catch(error => {
-            console.error('Error loading drivers:', error);
-            Swal.fire('Error', 'Failed to load drivers', 'error');
+            console.error('Error loading delivery data:', error);
+            Swal.fire('Error', 'Failed to load delivery data: ' + error.message, 'error');
         });
 }
 
@@ -1326,38 +1191,212 @@ function loadDeliveries() {
     const tbody = document.getElementById('deliveriesTableBody');
     if (!tbody) return;
 
-    if (deliveries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center">No deliveries found</td></tr>';
-        return;
-    }
+    // Show loading state
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading active deliveries...</td></tr>';
 
-    tbody.innerHTML = deliveries.map((delivery, index) => {
-        const driver = drivers.find(d => d.id === delivery.driverId);
-        const vehicle = vehicles.find(v => v.id === delivery.vehicleId);
+    // Fetch active deliveries with ASSIGNED or ON_ROAD status
+    fetch('/api/v1/delivery/deliveries?page=0&size=100&status=ASSIGNED')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch deliveries');
+            return response.json();
+        })
+        .then(result => {
+            const deliveriesList = (result.data?.content) || result.data || [];
 
-        return `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${delivery.id}</td>
-                <td>${delivery.orderCode}</td>
-                <td>${delivery.customer}</td>
-                <td>${delivery.address}</td>
-                <td>${driver ? driver.name : 'N/A'}</td>
-                <td>${vehicle ? vehicle.vehicleNumber : 'N/A'}</td>
-                <td>${formatDateTime(delivery.dispatchTime)}</td>
-                <td>${delivery.estimatedTime ? formatDateTime(delivery.estimatedTime) : 'N/A'}</td>
-                <td><span class="badge bg-${getStatusColor(delivery.status)}">${delivery.status}</span></td>
-                <td>
-                    <button class="action-btn view" onclick="viewDelivery('${delivery.id}')" title="View">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="action-btn edit" onclick="editDelivery('${delivery.id}')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+            if (deliveriesList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-truck"></i> No active deliveries</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = deliveriesList.map((delivery, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${delivery.deliveryCode || 'N/A'}</strong></td>
+                    <td><strong>${delivery.orderCode || 'N/A'}</strong></td>
+                    <td>${delivery.driverName || 'N/A'}</td>
+                    <td>${delivery.deliveryAddress || 'N/A'}</td>
+                    <td>${delivery.driverName || 'N/A'}</td>
+                    <td>${delivery.vehicleNumber || 'N/A'}</td>
+                    <td><small>${formatDateTime(delivery.createdAt)}</small></td>
+                    <td><strong>${delivery.scheduledDate ? formatDate(delivery.scheduledDate) : 'N/A'}</strong></td>
+                    <td><span class="badge bg-info">${delivery.status || 'PENDING'}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-info" onclick="viewDeliveryDetails(${delivery.deliveryId})" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="completeDelivery(${delivery.deliveryId}, '${delivery.orderCode}')" title="Mark Complete">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error loading deliveries:', error);
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger"><i class="fas fa-exclamation-circle"></i> Failed to load deliveries</td></tr>';
+        });
+}
+
+/**
+ * Complete a delivery - Mark as DELIVERED
+ */
+function completeDelivery(deliveryId, orderCode) {
+    // Fetch all orders to find the one matching this order code
+    fetch(`/api/orders`)
+        .then(r => r.json())
+        .then(result => {
+            if (result.data) {
+                const orders = result.data;
+                const order = orders.find(o => o.orderCode === orderCode);
+                
+                if (order) {
+                    // Order found, proceed with completion
+                    proceedCompleteDelivery(deliveryId, orderCode, order.orderId);
+                } else {
+                    // Order not found in list, proceed without order ID
+                    proceedCompleteDelivery(deliveryId, orderCode, null);
+                }
+            } else {
+                // No orders data, proceed without order ID
+                proceedCompleteDelivery(deliveryId, orderCode, null);
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching orders:', err);
+            // Proceed anyway without order ID update
+            proceedCompleteDelivery(deliveryId, orderCode, null);
+        });
+}
+
+/**
+ * Proceed with delivery completion - transitions through proper status flow
+ */
+function proceedCompleteDelivery(deliveryId, orderCode, orderId) {
+    Swal.fire({
+        title: '✓ Complete Delivery?',
+        text: `Mark order ${orderCode} delivery as complete?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Complete',
+        confirmButtonColor: '#28a745',
+        cancelButtonText: 'Cancel'
+    }).then(result => {
+        if (result.isConfirmed) {
+            // Show loading message
+            Swal.fire({
+                icon: 'info',
+                title: 'Processing...',
+                text: 'Updating delivery status...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.hideLoading();
+                }
+            });
+
+            // Status transition flow: ASSIGNED → PICKED_UP → IN_TRANSIT → DELIVERED
+            updateDeliveryStatus(deliveryId, 'PICKED_UP')
+                .then(() => updateDeliveryStatus(deliveryId, 'IN_TRANSIT'))
+                .then(() => updateDeliveryStatus(deliveryId, 'DELIVERED'))
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Delivery Completed!',
+                        text: `Order ${orderCode} delivery marked as complete`,
+                        timer: 2000
+                    });
+                    
+                    // Update order status to COMPLETED
+                    if (orderId) {
+                        // Update order status
+                        fetch(`/api/orders/${orderId}/status`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ 
+                                statusId: 4,  // COMPLETED status
+                                notes: 'Delivery completed' 
+                            })
+                        }).catch(err => console.error('Error updating order status:', err));
+                        
+                        // Update payment status for this order
+                        fetch(`/api/payments/order/${orderId}`)
+                            .then(r => r.json())
+                            .then(result => {
+                                if (result.data && Array.isArray(result.data)) {
+                                    // For each payment, mark it as complete
+                                    result.data.forEach(payment => {
+                                        if (payment.paymentId && payment.status !== 'COMPLETED') {
+                                            fetch(`/api/payments/${payment.paymentId}/complete`, {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json'
+                                                }
+                                            })
+                                            .then(r => r.json())
+                                            .then(res => {
+                                                console.log('Payment completed:', res);
+                                            })
+                                            .catch(err => console.error('Error completing payment:', err));
+                                        }
+                                    });
+                                }
+                            })
+                            .catch(err => console.error('Error fetching payments:', err));
+                    }
+                    
+                    // Reload deliveries table after a brief delay
+                    setTimeout(() => {
+                        loadDeliveries();
+                    }, 1500);
+                })
+                .catch(error => {
+                    console.error('Error completing delivery:', error);
+                    Swal.fire('Error', 'Failed to complete delivery: ' + error.message, 'error');
+                });
+        }
+    });
+}
+
+/**
+ * Update delivery status with proper error handling
+ */
+function updateDeliveryStatus(deliveryId, newStatus) {
+    return fetch(`/api/v1/delivery/deliveries/${deliveryId}/status`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: newStatus,
+            notes: `Delivery status updated to ${newStatus}`
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.message || `Failed to update status to ${newStatus}`);
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (!result.success) {
+            throw new Error(result.message || `Failed to update status to ${newStatus}`);
+        }
+        return result;
+    });
+}
+
+/**
+ * Helper function to get orderId from orderCode
+ */
+function getOrderIdFromCode(orderCode) {
+    // This is a placeholder - in a real scenario, you might need to fetch this
+    // For now, we'll extract it from API response
+    return null;
 }
 
 function loadDrivers(filterStatus = 'all') {
@@ -1386,7 +1425,6 @@ function loadDrivers(filterStatus = 'all') {
                         <tr>
                             <td>${driver.driverCode}</td>
                             <td>${driver.fullName}</td>
-                            <td>${driver.nicNumber || '-'}</td>
                             <td>${driver.phone}</td>
                             <td>${driver.licenseNumber}</td>
                             <td>${driver.licenseType || '-'}</td>
@@ -1429,7 +1467,6 @@ function viewDriver(id) {
                     html: `
                         <div class="text-start">
                             <p><strong>Driver Code:</strong> ${driver.driverCode}</p>
-                            <p><strong>NIC:</strong> ${driver.nicNumber || 'N/A'}</p>
                             <p><strong>Phone:</strong> ${driver.phone}</p>
                             <p><strong>Email:</strong> ${driver.email || 'N/A'}</p>
                             <p><strong>License:</strong> ${driver.licenseNumber}</p>
@@ -1608,46 +1645,7 @@ function getRouteStatusBadge(status) {
 
 // ==================== POPULATE DROPDOWNS ====================
 function populateDropdowns() {
-    // Populate order dropdown
-    const orderSelect = document.getElementById('assignOrderCode');
-    if (orderSelect) {
-        const orders = JSON.parse(localStorage.getItem('orders')) || [];
-        orderSelect.innerHTML = '<option value="">Search and select order...</option>' +
-            orders.filter(o => o.status === 'confirmed' || o.status === 'pending')
-                .map(o => `<option value="${o.code}">${o.code} - ${o.customerName || 'Unknown'}</option>`).join('');
-    }
-
-    // Populate driver dropdowns (only available)
-    const driverSelect = document.getElementById('assignDriver');
-    if (driverSelect) {
-        driverSelect.innerHTML = '<option value="">Select available driver...</option>' +
-            drivers.filter(d => d.status === 'available')
-                .map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    }
-
-    // Populate vehicle dropdowns (only available)
-    const vehicleSelect = document.getElementById('assignVehicle');
-    if (vehicleSelect) {
-        vehicleSelect.innerHTML = '<option value="">Select available vehicle...</option>' +
-            vehicles.filter(v => v.status === 'available')
-                .map(v => `<option value="${v.id}">${v.vehicleNumber} (${capitalizeFirst(v.type)})</option>`).join('');
-    }
-
-    // Populate route dropdown
-    const routeSelect = document.getElementById('assignRoute');
-    if (routeSelect) {
-        routeSelect.innerHTML = '<option value="">Select route...</option>' +
-            routes.filter(r => r.status === 'active')
-                .map(r => `<option value="${r.id}">${r.name}</option>`).join('');
-    }
-
-    // Populate driver dropdown in route form
-    loadRouteDriverDropdown();
-
-    // Populate vehicle dropdown in route form
-    loadRouteVehicleDropdown();
-
-    // Populate product dropdown
+    // Populate product dropdown for delivery requests
     const productSelect = document.getElementById('requestProduct');
     if (productSelect) {
         const products = JSON.parse(localStorage.getItem('products')) || [];
@@ -1656,7 +1654,7 @@ function populateDropdowns() {
                 .map(p => `<option value="${p.id}">${p.name} - Rs. ${p.price}</option>`).join('');
     }
 
-    // Pre-fill customer info for request
+    // Pre-fill customer info for delivery request
     const currentUser = JSON.parse(localStorage.getItem('currentUser')) || {};
     if (currentUser.name) {
         const nameInput = document.getElementById('requestCustomerName');
