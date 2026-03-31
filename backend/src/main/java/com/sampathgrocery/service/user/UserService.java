@@ -5,6 +5,7 @@ import com.sampathgrocery.entity.user.Role;
 import com.sampathgrocery.entity.user.User;
 import com.sampathgrocery.repository.user.RoleRepository;
 import com.sampathgrocery.repository.user.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -187,16 +188,22 @@ public class UserService {
         dto.setUsername(user.getUsername());
         // Never return password
         dto.setEmail(user.getEmail());
-        
-        // Handle role (may be null)
-        if (user.getRole() != null) {
-            dto.setRoleId(user.getRole().getRoleId());
-            dto.setRoleName(user.getRole().getRoleName());
-        } else {
+
+        // Handle role safely. Some legacy data may reference a deleted/missing role.
+        try {
+            if (user.getRole() != null) {
+                dto.setRoleId(user.getRole().getRoleId());
+                dto.setRoleName(user.getRole().getRoleName());
+            } else {
+                dto.setRoleId(null);
+                dto.setRoleName(null);
+            }
+        } catch (EntityNotFoundException ex) {
+            log.warn("User {} has invalid role reference. Returning user with null role.", user.getUserId());
             dto.setRoleId(null);
             dto.setRoleName(null);
         }
-        
+
         dto.setIsActive(user.getIsActive());
         dto.setIsVerified(user.getIsVerified());
         dto.setLastLogin(user.getLastLogin());

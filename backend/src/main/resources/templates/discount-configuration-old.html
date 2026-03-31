@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discount Configuration - Sampath Grocery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #28a745;
+            --secondary-color: #17a2b8;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+        }
+
+        body {
+            background-color: #f5f5f5;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .discount-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .discount-header h1 {
+            margin: 0;
+        }
+
+        .btn-custom-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-custom-primary:hover {
+            background-color: #218838;
+            border-color: #218838;
+        }
+
+        .form-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .form-section-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control, .form-select {
+            border-color: #ddd;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        .discount-card {
+            background: white;
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .discount-card.inactive {
+            opacity: 0.7;
+            border-left-color: #ccc;
+        }
+
+        .discount-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .discount-card-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .discount-card-code {
+            font-size: 0.9rem;
+            color: #666;
+            font-family: monospace;
+        }
+
+        .discount-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge-category-loyalty {
+            background-color: #e2e3e5;
+            color: #333;
+        }
+
+        .badge-category-seasonal {
+            background-color: #cfe2ff;
+            color: #084298;
+        }
+
+        .badge-category-daily {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-category-bulk {
+            background-color: #fff3cd;
+            color: #664d03;
+        }
+
+        .badge-category-custom {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+
+        .discount-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .discount-detail {
+            font-size: 0.95rem;
+        }
+
+        .discount-detail-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .discount-detail-value {
+            color: #333;
+        }
+
+        .discount-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm-custom {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .toggle-form-btn {
+            margin-bottom: 1rem;
+        }
+
+        .validation-error {
+            color: var(--danger-color);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .section-divider {
+            border-top: 2px solid #ddd;
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .grid-2-col {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .form-switch {
+            display: flex;
+            align-items: center;
+        }
+
+        .form-switch .form-check-input {
+            width: 3rem;
+            height: 1.5rem;
+            margin-top: 0;
+            margin-right: 0.5rem;
+        }
+
+        .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        @media (max-width: 768px) {
+            .discount-card-header {
+                flex-direction: column;
+            }
+
+            .discount-details {
+                grid-template-columns: 1fr;
+            }
+
+            .discount-actions {
+                flex-direction: column;
+            }
+
+            .btn-sm-custom {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-leaf"></i> Sampath Grocery
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/discount-configuration">Discounts</a></li>
+                <li class="nav-item"><a class="nav-link" href="/settings">Settings</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Header -->
+<div class="discount-header">
+    <div class="container-fluid">
+        <h1><i class="fas fa-percentage"></i> Discount Configuration</h1>
+        <p class="mb-0">Manage promotional discounts, loyalty offers, and seasonal deals</p>
+    </div>
+</div>
+
+<!-- Main Container -->
+<div class="container-fluid">
+    <!-- Create/Edit Form Button -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <button id="toggleFormBtn" class="btn btn-custom-primary toggle-form-btn">
+                <i class="fas fa-plus"></i> Create New Discount
+            </button>
+        </div>
+    </div>
+
+    <!-- Create/Edit Form (Initially Hidden) -->
+    <div class="form-section" id="discountFormSection" style="display: none;">
+        <div class="form-section-title">
+            <span id="formTitle">Create New Discount</span>
+            <button type="button" class="btn-close float-end" id="closeFormBtn"></button>
+        </div>
+
+        <form id="discountForm">
+            <div class="grid-2-col">
+                <!-- Basic Information -->
+                <div>
+                    <h5 class="text-secondary mb-3">
+                        <i class="fas fa-info-circle"></i> Basic Information
+                    </h5>
+
+                    <div class="form-group">
+                        <label class="form-label" for="discountCode">Discount Code *</label>
+                        <input type="text" id="discountCode" name="discountCode" class="form-control" 
+                               placeholder="e.g., SUMMER20, LOYALTY10" maxlength="50" required readonly>
+                        <small class="text-muted">Auto-generated or enter custom code</small>
+                        <div class="validation-error" id="discountCodeError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="discountName">Discount Name *</label>
+                        <input type="text" id="discountName" name="discountName" class="form-control" 
+                               placeholder="e.g., Summer Sales 20% Off" maxlength="200" required>
+                        <div class="validation-error" id="discountNameError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="discountCategory">Discount Category *</label>
+                        <select id="discountCategory" name="discountCategory" class="form-select" required>
+                            <option value="">-- Select Category --</option>
+                            <option value="LOYALTY">Loyalty Program</option>
+                            <option value="SEASONAL">Seasonal Promotion</option>
+                            <option value="DAILY">Daily Deal</option>
+                            <option value="BULK_THRESHOLD">Bulk Discount</option>
+                            <option value="CUSTOM_PRODUCT">Product-Specific</option>
+                        </select>
+                        <div class="validation-error" id="discountCategoryError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Active Status</label>
+                        <div class="form-switch">
+                            <input type="checkbox" id="isActive" name="isActive" class="form-check-input" checked>
+                            <label class="form-check-label" for="isActive">Enabled</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discount Details -->
+                <div>
+                    <h5 class="text-secondary mb-3">
+                        <i class="fas fa-tag"></i> Discount Details
+                    </h5>
+
+                    <div class="form-group">
+                        <label class="form-label" for="discountType">Discount Type *</label>
+                        <select id="discountType" name="discountType" class="form-select" required>
+                            <option value="">-- Select Type --</option>
+                            <option value="PERCENTAGE">Percentage (%)</option>
+                            <option value="FIXED_AMOUNT">Fixed Amount (Rs.)</option>
+                            <option value="BUY_X_GET_Y">Buy X Get Y</option>
+                        </select>
+                        <div class="validation-error" id="discountTypeError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="discountValue">Discount Value *</label>
+                        <div class="input-group">
+                            <input type="number" id="discountValue" name="discountValue" class="form-control" 
+                                   placeholder="10.00" step="0.01" min="0.01" required>
+                            <span class="input-group-text" id="discountValueUnit">%</span>
+                        </div>
+                        <div class="validation-error" id="discountValueError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="maxDiscountAmount">Maximum Discount Amount (Rs.)</label>
+                        <input type="number" id="maxDiscountAmount" name="maxDiscountAmount" class="form-control" 
+                               placeholder="e.g., 500.00" step="0.01" min="0">
+                        <small class="text-muted">Leave empty for no limit</small>
+                        <div class="validation-error" id="maxDiscountAmountError"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conditions & Scope Section -->
+            <div class="section-divider">
+                <h5 class="text-secondary mb-3">
+                    <i class="fas fa-sliders-h"></i> Conditions & Scope
+                </h5>
+
+                <div class="grid-2-col">
+                    <!-- Conditions -->
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label" for="minPurchaseAmount">Minimum Purchase Amount (Rs.)</label>
+                            <input type="number" id="minPurchaseAmount" name="minPurchaseAmount" class="form-control" 
+                                   placeholder="e.g., 1000.00" step="0.01" min="0">
+                            <small class="text-muted">Leave empty for no minimum</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="customerTypeCondition">Customer Type Condition *</label>
+                            <select id="customerTypeCondition" name="customerTypeCondition" class="form-select" required>
+                                <option value="ANY">Any Customer</option>
+                                <option value="LOYALTY_ONLY">Loyalty Members Only</option>
+                                <option value="NEW_CUSTOMERS">New Customers Only</option>
+                                <option value="REGULAR_ONLY">Regular Customers Only</option>
+                            </select>
+                            <div class="validation-error" id="customerTypeConditionError"></div>
+                        </div>
+
+                        <div class="form-group" id="bulkThresholdGroup" style="display: none;">
+                            <label class="form-label" for="bulkThresholdQuantity">Bulk Threshold Quantity (Units)</label>
+                            <input type="number" id="bulkThresholdQuantity" name="bulkThresholdQuantity" class="form-control" 
+                                   placeholder="e.g., 10" min="1">
+                            <small class="text-muted">Minimum quantity for bulk discount to apply</small>
+                        </div>
+                    </div>
+
+                    <!-- Product Scope -->
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label" for="applicableTo">Product Scope *</label>
+                            <select id="applicableTo" name="applicableTo" class="form-select" required 
+                                    onchange="toggleProductSelection()">
+                                <option value="ALL_PRODUCTS">All Products</option>
+                                <option value="CATEGORY">Specific Categories</option>
+                                <option value="SPECIFIC_PRODUCTS">Specific Products</option>
+                                <option value="PRODUCT_SET">Product Set</option>
+                            </select>
+                            <div class="validation-error" id="applicableToError"></div>
+                        </div>
+
+                        <div class="form-group" id="applicableIdsGroup" style="display: none;">
+                            <label class="form-label" for="applicableIds">Select Items</label>
+                            <textarea id="applicableIds" name="applicableIds" class="form-control" rows="3" 
+                                    placeholder="Enter JSON array: [1,2,3]"
+                                    data-placeholder-category="Enter category IDs: [1,2,3]"
+                                    data-placeholder-products="Enter product IDs: [1,2,3]"></textarea>
+                            <small class="text-muted" id="applicableIdsHint"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date & Priority Section -->
+            <div class="section-divider">
+                <h5 class="text-secondary mb-3">
+                    <i class="fas fa-calendar"></i> Duration & Priority
+                </h5>
+
+                <div class="grid-2-col">
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label" for="startDate">Start Date *</label>
+                            <input type="date" id="startDate" name="startDate" class="form-control" required>
+                            <div class="validation-error" id="startDateError"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="endDate">End Date *</label>
+                            <input type="date" id="endDate" name="endDate" class="form-control" required>
+                            <div class="validation-error" id="endDateError"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label" for="priorityLevel">Priority Level</label>
+                            <input type="number" id="priorityLevel" name="priorityLevel" class="form-control" 
+                                   placeholder="0" min="0" max="100" value="0">
+                            <small class="text-muted">Higher number = higher priority (for multiple discounts)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Usage Limits</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="number" id="usageLimit" name="usageLimit" class="form-control" 
+                                           placeholder="Total uses" min="0">
+                                    <small class="text-muted">Total usage limit</small>
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" id="usagePerCustomer" name="usagePerCustomer" class="form-control" 
+                                           placeholder="Per customer" min="1" value="1">
+                                    <small class="text-muted">Uses per customer</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="section-divider">
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" id="cancelFormBtn">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-custom-primary">
+                        <i class="fas fa-save"></i> Save Discount
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Discounts List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="form-section">
+                <h3 class="form-section-title mb-4">
+                    <i class="fas fa-list"></i> All Discounts
+                </h3>
+
+                <!-- Filters -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search by code or name...">
+                    </div>
+                    <div class="col-md-4">
+                        <select id="categoryFilter" class="form-select">
+                            <option value="">All Categories</option>
+                            <option value="LOYALTY">Loyalty</option>
+                            <option value="SEASONAL">Seasonal</option>
+                            <option value="DAILY">Daily</option>
+                            <option value="BULK_THRESHOLD">Bulk</option>
+                            <option value="CUSTOM_PRODUCT">Custom Product</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="statusFilter" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Discounts List -->
+                <div id="discountsList">
+                    <div class="text-center py-5">
+                        <i class="fas fa-spinner fa-spin fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">Loading discounts...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/discount-configuration.js"></script>
+
+</body>
+</html>

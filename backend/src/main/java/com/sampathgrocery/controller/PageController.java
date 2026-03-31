@@ -93,4 +93,9 @@ public class PageController {
     public String connectionTest() {
         return "connection-test";
     }
+
+    @GetMapping("/discount-configuration")
+    public String discountConfiguration() {
+        return "discount-configuration";
+    }
 }

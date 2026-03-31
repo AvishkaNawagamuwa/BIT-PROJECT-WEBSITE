@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discount Configuration - Sampath Grocery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2ecc71;
+            --primary-dark: #27ae60;
+            --primary-light: #52d96b;
+            --secondary: #3498db;
+            --accent: #f39c12;
+            --danger: #e74c3c;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --info: #0ea5e9;
+            --light: #f8fafc;
+            --lighter: #f1f5f9;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ========== MODAL STYLES ========== */
+        .modal-content {
+            border: none;
+            box-shadow: var(--shadow-lg);
+            border-radius: 12px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border: none;
+            padding: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .modal-header .modal-title {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-header .modal-title i {
+            font-size: 1.75rem;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .modal-header .btn-close:hover {
+            opacity: 1;
+        }
+
+        .modal-body {
+            padding: 0;
+            background: white;
+        }
+
+        .modal-footer {
+            background: var(--lighter);
+            border-top: 1px solid var(--border);
+            gap: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        /* ========== FORM SECTIONS ========== */
+        .form-section {
+            padding: 1.75rem;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+        }
+
+        .form-section:hover {
+            background: var(--lighter);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .section-icon {
+            font-size: 1.5rem;
+            color: var(--primary);
+            width: 2.5rem;
+            height: 2.5rem;
+            background: rgba(46, 204, 113, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+        }
+
+        /* ========== FORM CONTROLS ========== */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .label-tooltip {
+            width: 18px;
+            height: 18px;
+            background: var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            cursor: help;
+        }
+
+        .form-control,
+        .form-select {
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            background-color: white;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+            outline: none;
+        }
+
+        .form-control:disabled,
+        .form-select:disabled {
+            background-color: var(--lighter);
+            color: var(--text-secondary);
+        }
+
+        .form-control.is-invalid,
+        .form-select.is-invalid {
+            border-color: var(--danger);
+        }
+
+        .form-control.is-invalid:focus,
+        .form-select.is-invalid:focus {
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+            font-weight: 500;
+        }
+
+        .form-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+        }
+
+        /* ========== GRID LAYOUTS ========== */
+        .form-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .form-row-2,
+            .form-row-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========== TOGGLE SWITCH ========== */
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0;
+        }
+
+        .form-check-input {
+            width: 2rem;
+            height: 1rem;
+            margin: 0;
+            cursor: pointer;
+            border-radius: 999px;
+            border: none;
+            background-color: var(--border);
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary);
+            box-shadow: inset 0 0 0 2px white;
+        }
+
+        .form-check-input:focus {
+            box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+        }
+
+        .form-check-label {
+            margin: 0;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* ========== RADIO BUTTONS ========== */
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .radio-item input[type="radio"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+
+        .radio-item label {
+            cursor: pointer;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        /* ========== MULTI-SELECT ========== */
+        .multi-select-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            min-height: 42px;
+        }
+
+        .multi-select-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary-light);
+            color: white;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .multi-select-item .remove-btn {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .multi-select-item .remove-btn:hover {
+            opacity: 1;
+        }
+
+        /* ========== BUTTONS ========== */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--lighter);
+            border-color: var(--text-secondary);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        /* ========== INLINE VALIDATION ========== */
+        .field-help-text {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(46, 204, 113, 0.05);
+            border-left: 3px solid var(--primary);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .field-help-text i {
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+
+        /* ========== DISCOUNT PREVIEW ========== */
+        .discount-preview {
+            background: var(--lighter);
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .preview-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .preview-value {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 576px) {
+            .modal-header .modal-title {
+                font-size: 1.25rem;
+            }
+
+            .section-header {
+                margin-bottom: 1rem;
+                padding-bottom: 0.75rem;
+            }
+
+            .form-section {
+                padding: 1.25rem;
+            }
+
+            .radio-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* ========== ANIMATIONS ========== */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-section {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* ========== TOOLTIP ========== */
+        .tooltip-custom {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip-custom .tooltip-text {
+            visibility: hidden;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 0.8rem;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .tooltip-custom:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* ========== SECTION NUMBERING ========== */
+        .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Discount Configuration Modal -->
+<div class="modal fade" id="discountModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-tag"></i>
+                    Discount Configuration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <form id="discountForm">
+
+                    <!-- SECTION 1: DISCOUNT DETAILS -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="bi bi-info-circle"></i>
+                            </div>
+                            <h6 class="section-title">
+                                <span class="section-number">1</span> Discount Details
+                            </h6>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Discount Name
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">Enter a descriptive name for this discount</span>
+                                    </div>
+                                </label>
+                                <input type="text" class="form-control" id="discountName" 
+                                       placeholder="e.g., Weekend Special Sale" required>
+                                <div class="invalid-feedback" id="discountNameError"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Category
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">Type of discount</span>
+                                    </div>
+                                </label>
+                                <select class="form-select" id="discountCategory" required>
+                                    <option value="">Select Category...</option>
+                                    <option value="LOYALTY">🎁 Loyalty Rewards</option>
+                                    <option value="SEASONAL">🌍 Seasonal</option>
+                                    <option value="DAILY">📅 Daily Deal</option>
+                                    <option value="BULK_THRESHOLD">📦 Bulk Purchase</option>
+                                    <option value="CUSTOM_PRODUCT">✨ Custom Product</option>
+                                </select>
+                                <div class="invalid-feedback" id="categoryError"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Active Status
+                                <div class="tooltip-custom">
+                                    <span class="label-tooltip">
+                                        <i class="bi bi-question-circle"></i>
+                                    </span>
+                                    <span class="tooltip-text">Toggle discount on/off</span>
+                                </div>
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">
+                                    Enable this discount
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="section-divider mt-3 pt-3">
+                            <h6 class="form-label mb-3">Discount Type & Value</h6>
+                            <div class="radio-group">
+                                <div class="radio-item">
+                                    <input type="radio" id="typePercentage" name="discountType" 
+                                           value="PERCENTAGE" checked required>
+                                    <label for="typePercentage">Percentage (%)</label>
+                                </div>
+                                <div class="radio-item">
+                                    <input type="radio" id="typeFixed" name="discountType" 
+                                           value="FIXED_AMOUNT" required>
+                                    <label for="typeFixed">Fixed Amount (Rs.)</label>
+                                </div>
+                                <div class="radio-item">
+                                    <input type="radio" id="typeBuyXGetY" name="discountType" 
+                                           value="BUY_X_GET_Y" required>
+                                    <label for="typeBuyXGetY">Buy X Get Y</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row-2 mt-3">
+                            <div class="form-group">
+                                <label class="form-label" id="valueLabel">Discount Value (%)</label>
+                                <input type="number" class="form-control" id="discountValue" 
+                                       placeholder="0" min="0" step="0.01" required>
+                                <div class="invalid-feedback" id="valueError"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Max Discount Amount (Rs.)</label>
+                                <input type="number" class="form-control" id="maxDiscountAmount" 
+                                       placeholder="Leave empty for unlimited" min="0" step="0.01">
+                                <div class="form-text">Optional cap for discount amount</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 2: APPLICABILITY -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                            <h6 class="section-title">
+                                <span class="section-number">2</span> Applicability
+                            </h6>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Apply To
+                                <div class="tooltip-custom">
+                                    <span class="label-tooltip">
+                                        <i class="bi bi-question-circle"></i>
+                                    </span>
+                                    <span class="tooltip-text">Choose discount scope</span>
+                                </div>
+                            </label>
+                            <select class="form-select" id="applicableTo" required>
+                                <option value="">Select Scope...</option>
+                                <option value="ALL_PRODUCTS">📌 All Products</option>
+                                <option value="CATEGORY">🏷️ Specific Category</option>
+                                <option value="SPECIFIC_PRODUCTS">🎯 Specific Products</option>
+                                <option value="PRODUCT_SET">💼 Product Set</option>
+                            </select>
+                            <div class="invalid-feedback" id="applicableToError"></div>
+                        </div>
+
+                        <div class="form-group" id="productsSelectionGroup" style="display: none;">
+                            <label class="form-label">Select Products / Categories</label>
+                            <div class="multi-select-container" id="productsMultiSelect">
+                                <small class="text-muted" style="width: 100%;">
+                                    <i class="bi bi-info-circle"></i> Click on products to select
+                                </small>
+                            </div>
+                            <div class="field-help-text mt-2">
+                                <i class="bi bi-lightbulb"></i>
+                                <span>Select one or more items to apply this discount</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 3: CONDITIONS -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="bi bi-sliders"></i>
+                            </div>
+                            <h6 class="section-title">
+                                <span class="section-number">3</span> Conditions
+                            </h6>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Minimum Purchase (Rs.)
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">Minimum order total to apply discount</span>
+                                    </div>
+                                </label>
+                                <input type="number" class="form-control" id="minPurchaseAmount" 
+                                       placeholder="0" min="0" step="0.01">
+                                <div class="form-text">Leave empty for no minimum</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Customer Type
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">Which customers can use this</span>
+                                    </div>
+                                </label>
+                                <select class="form-select" id="customerType">
+                                    <option value="ANY">👥 All Customers</option>
+                                    <option value="LOYALTY_ONLY">⭐ Loyalty Members Only</option>
+                                    <option value="NEW_CUSTOMERS">🆕 New Customers Only</option>
+                                    <option value="REGULAR_ONLY">💎 Regular Customers Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="bulkThresholdGroup" style="display: none;">
+                            <label class="form-label">
+                                Bulk Threshold (Quantity)
+                                <div class="tooltip-custom">
+                                    <span class="label-tooltip">
+                                        <i class="bi bi-question-circle"></i>
+                                    </span>
+                                    <span class="tooltip-text">Minimum quantity to trigger bulk discount</span>
+                                </div>
+                            </label>
+                            <input type="number" class="form-control" id="bulkThreshold" 
+                                   placeholder="e.g., 10" min="1" step="1">
+                        </div>
+                    </div>
+
+                    <!-- SECTION 4: SCHEDULE -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="bi bi-calendar-range"></i>
+                            </div>
+                            <h6 class="section-title">
+                                <span class="section-number">4</span> Schedule
+                            </h6>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Start Date
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">When discount becomes active</span>
+                                    </div>
+                                </label>
+                                <input type="date" class="form-control" id="startDate" required>
+                                <div class="invalid-feedback" id="startDateError"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">
+                                    End Date
+                                    <div class="tooltip-custom">
+                                        <span class="label-tooltip">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <span class="tooltip-text">When discount expires</span>
+                                    </div>
+                                </label>
+                                <input type="date" class="form-control" id="endDate" required>
+                                <div class="invalid-feedback" id="endDateError"></div>
+                            </div>
+                        </div>
+
+                        <div class="field-help-text">
+                            <i class="bi bi-calendar-check"></i>
+                            <span>Discount will be active from start to end date (inclusive)</span>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 5: PRIORITY & RULES -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="bi bi-arrow-up-circle"></i>
+                            </div>
+                            <h6 class="section-title">
+                                <span class="section-number">5</span> Priority & Rules
+                            </h6>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Priority Level (1-100)
+                                <div class="tooltip-custom">
+                                    <span class="label-tooltip">
+                                        <i class="bi bi-question-circle"></i>
+                                    </span>
+                                    <span class="tooltip-text">Higher number = Higher priority</span>
+                                </div>
+                            </label>
+                            <input type="number" class="form-control" id="priorityLevel" 
+                                   placeholder="0" min="0" max="100" value="0">
+                            <div class="form-text">
+                                <i class="bi bi-lightbulb"></i> 
+                                <strong>Higher priority discounts override lower ones</strong>
+                            </div>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">Usage Limit</label>
+                                <input type="number" class="form-control" id="usageLimit" 
+                                       placeholder="Unlimited" min="1">
+                                <div class="form-text">Total times this discount can be used</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Per Customer Limit</label>
+                                <input type="number" class="form-control" id="usagePerCustomer" 
+                                       placeholder="Unlimited" min="1">
+                                <div class="form-text">How many times per customer</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PREVIEW SECTION -->
+                    <div class="form-section bg-light">
+                        <h6 class="section-title mb-3">
+                            <i class="bi bi-eye"></i> Preview
+                        </h6>
+                        <div class="discount-preview">
+                            <div class="preview-item">
+                                <span class="preview-label">Discount Name:</span>
+                                <span class="preview-value" id="previewName">Not set</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">Category:</span>
+                                <span class="preview-value" id="previewCategory">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">Value:</span>
+                                <span class="preview-value" id="previewValue">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">Period:</span>
+                                <span class="preview-value" id="previewPeriod">-</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">Status:</span>
+                                <span class="preview-value">
+                                    <span class="badge bg-success" id="previewStatus">Active</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="saveDiscountBtn">
+                    <i class="bi bi-check-circle"></i> Save Discount
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+    <div id="toastContainer"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/discount-configuration.js"></script>
+</body>
+</html>

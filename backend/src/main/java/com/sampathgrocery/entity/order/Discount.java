@@ -16,7 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Discount Entity - Manages promotional discounts and coupon codes
+ * Discount Entity - Enhanced with comprehensive discount configuration features
+ * Supports Loyalty, Seasonal, Daily, Bulk Threshold, and Custom Product
+ * discounts
  */
 @Entity
 @Table(name = "Discount")
@@ -40,6 +42,12 @@ public class Discount {
     @Column(name = "discount_name", nullable = false, length = 200)
     private String discountName;
 
+    // ========== NEW: Discount Category ==========
+    @NotNull(message = "Discount category is required")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_category", length = 30)
+    private DiscountCategory discountCategory;
+
     @NotNull(message = "Discount type is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "discount_type", nullable = false, length = 20)
@@ -55,6 +63,7 @@ public class Discount {
     @Column(name = "max_discount_amount", precision = 10, scale = 2)
     private BigDecimal maxDiscountAmount;
 
+    // ========== NEW: Enhanced Product Scope ==========
     @NotNull(message = "Applicable scope is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "applicable_to", length = 30)
@@ -74,6 +83,19 @@ public class Discount {
     @NotNull(message = "End date is required")
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
+
+    // ========== NEW: Customer Type Condition ==========
+    @Enumerated(EnumType.STRING)
+    @Column(name = "customer_type_condition", length = 20)
+    private CustomerTypeCondition customerTypeCondition = CustomerTypeCondition.ANY;
+
+    // ========== NEW: Bulk Threshold ==========
+    @Column(name = "bulk_threshold_quantity")
+    private Integer bulkThresholdQuantity;
+
+    // ========== NEW: Priority Level ==========
+    @Column(name = "priority_level")
+    private Integer priorityLevel = 0; // Higher number = higher priority
 
     @Column(name = "usage_limit")
     private Integer usageLimit;
@@ -103,8 +125,23 @@ public class Discount {
     @JoinColumn(name = "updated_by")
     private User updatedBy;
 
+    // ========== ENUMS ==========
+
+    /**
+     * Discount Category Enum
+     * Defines the type of discount being offered
+     */
+    public enum DiscountCategory {
+        LOYALTY, // Loyalty discount for registered customers
+        SEASONAL, // Seasonal promotions (holidays, events)
+        DAILY, // Daily special discounts
+        BULK_THRESHOLD, // Discount for bulk purchases
+        CUSTOM_PRODUCT // Custom discount for specific products
+    }
+
     /**
      * Discount Type Enum
+     * Defines how the discount value is applied
      */
     public enum DiscountType {
         PERCENTAGE, // Percentage discount (e.g., 10%)
@@ -114,15 +151,30 @@ public class Discount {
 
     /**
      * Applicable To Enum
+     * Defines the scope of products this discount applies to
      */
     public enum ApplicableTo {
         ALL_PRODUCTS, // Applies to all products
         CATEGORY, // Applies to specific categories
-        SPECIFIC_PRODUCTS // Applies to specific products
+        SPECIFIC_PRODUCTS, // Applies to specific products
+        PRODUCT_SET // Applies to a set of selected products
     }
 
     /**
-     * Check if discount is currently valid
+     * Customer Type Condition Enum
+     * Defines which type of customers can use this discount
+     */
+    public enum CustomerTypeCondition {
+        ANY, // Available for all customer types
+        LOYALTY_ONLY, // Only for loyalty program members
+        NEW_CUSTOMERS, // Only for new customers
+        REGULAR_ONLY // Only for regular customers
+    }
+
+    // ========== BUSINESS LOGIC METHODS ==========
+
+    /**
+     * Check if discount is currently valid based on date, status, and usage limits
      */
     public boolean isValid() {
         if (!isActive) {
@@ -140,6 +192,89 @@ public class Discount {
         }
 
         return true;
+    }
+
+    /**
+     * Check if discount is valid for a specific customer
+     */
+    public boolean isValidForCustomer(Boolean isLoyaltyMember, Integer customerUsageCount) {
+        if (!isValid()) {
+            return false;
+        }
+
+        // Check customer type condition
+        switch (customerTypeCondition) {
+            case LOYALTY_ONLY:
+                if (!isLoyaltyMember) {
+                    return false;
+                }
+                break;
+            case REGULAR_ONLY:
+                if (isLoyaltyMember) {
+                    return false;
+                }
+                break;
+            case NEW_CUSTOMERS:
+                // Simple check: assume usage count > 0 means not new
+                if (customerUsageCount != null && customerUsageCount > 0) {
+                    return false;
+                }
+                break;
+            case ANY:
+            default:
+                // No restriction
+                break;
+        }
+
+        // Check usage per customer
+        if (usagePerCustomer != null && customerUsageCount != null && customerUsageCount >= usagePerCustomer) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if discount applies to a specific product
+     */
+    public boolean appliesTo(Integer productId, Integer categoryId) {
+        switch (applicableTo) {
+            case ALL_PRODUCTS:
+                return true;
+            case CATEGORY:
+                return isInApplicableIds(categoryId);
+            case SPECIFIC_PRODUCTS:
+                return isInApplicableIds(productId);
+            case PRODUCT_SET:
+                return isInApplicableIds(productId);
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if a specific ID is in the applicable IDs list
+     */
+    private boolean isInApplicableIds(Integer id) {
+        if (applicableIds == null || applicableIds.trim().isEmpty()) {
+            return false;
+        }
+
+        try {
+            // Parse JSON array: [1,2,3]
+            String cleaned = applicableIds.replaceAll("[\\[\\]\\s]", "");
+            String[] ids = cleaned.split(",");
+            for (String idStr : ids) {
+                if (Integer.parseInt(idStr.trim()) == id) {
+                    return true;
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Invalid format, return false
+            return false;
+        }
+
+        return false;
     }
 
     /**
@@ -166,7 +301,7 @@ public class Discount {
                 discountAmount = discountValue;
                 break;
             case BUY_X_GET_Y:
-                // Custom logic for buy X get Y - not fully implemented here
+                // Custom logic for buy X get Y - can be extended based on requirements
                 discountAmount = BigDecimal.ZERO;
                 break;
         }
